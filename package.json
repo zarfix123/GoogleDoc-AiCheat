@@ -1,0 +1,13 @@
+{
+  "name": "multi-bot-webhook",
+  "version": "1.0.0",
+  "main": "webhook.cjs",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "body-parser": "^1.20.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "openai": "^3.2.1"
+  }
+}
