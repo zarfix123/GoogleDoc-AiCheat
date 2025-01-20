@@ -7,6 +7,18 @@ const processedDocs = new Set();
 const app = express();
 app.use(express.json());
 
+const approvedEmails = [
+  //me
+  'zarfix.42@gmail.com',
+  'dennis24.f@gmail.com',
+  '26freymand@mbusdapps.org'
+ 
+  // person 2
+
+  // person 3
+];
+
+
 // Initialize Google APIs
 const credentials = {
   client_email: process.env.CLIENT_EMAIL,
@@ -38,6 +50,19 @@ async function fetchDocument(docId) {
   }
 }
 
+async function isDocumentOwnerApproved(docId) {
+  try {
+    const res = await drive.files.get({
+      fileId: docId,
+      fields: 'owners(emailAddress)'
+    });
+    const owners = res.data.owners || [];
+    return owners.some(owner => approvedEmails.includes(owner.emailAddress));
+  } catch (error) {
+    console.error('Error checking document owner:', error);
+    return false;
+  }
+}
 
 function parseQuestions(document) {
   const content = document.body.content;
@@ -128,6 +153,12 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
 app.post('/webhook', async (req, res) => {
   const { documentId } = req.body;
   if (!documentId) return res.status(400).send('Missing documentId');
+
+  if (!await isDocumentOwnerApproved(documentId)) {
+    console.log(`Document ${documentId} is not from an approved owner.`);
+    return res.status(403).send('Document owner not approved for processing.');
+  }
+  
   try {
     const document = await fetchDocument(documentId);
     const questions = parseQuestions(document);
@@ -177,6 +208,13 @@ app.get('/start/:documentId', async (req, res) => {
     return res.status(400).send('Missing document ID.');
   }
   
+  // Check if the document owner is approved
+  const approved = await isDocumentOwnerApproved(documentId);
+  if (!approved) {
+    console.log(`Document ${documentId} is not from an approved owner.`);
+    return res.status(403).send('Document owner not approved for processing.');
+  }
+  
   console.log(`Starting processing for document: ${documentId}`);
   
   try {
@@ -197,8 +235,7 @@ app.get('/start/:documentId', async (req, res) => {
         const fullAnswer = `\n${answer}`;
         console.log(`Inserting answer at index ${insertIndex}`);
         await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
-        // Pause for 2 seconds between questions
-        await new Promise(res => setTimeout(res, 2000));
+        await new Promise(res => setTimeout(res, 2000));  // pause between questions
       }
     }
     
@@ -208,7 +245,7 @@ app.get('/start/:documentId', async (req, res) => {
     console.error('Error processing document:', error);
     res.status(500).send('Error processing document.');
   }
-});
+}); 
 
 // Periodic processing interval
 setInterval(processNewSharedDocs, 5 * 60 * 1000); // 5 minutes interval
