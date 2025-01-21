@@ -222,31 +222,51 @@ app.get('/start/:documentId', async (req, res) => {
     </body>
     </html>
   `);
-  if (!documentId) return res.status(400).send('Missing document ID.');
-
-  if (!await isDocumentOwnerApproved(documentId)) {
-    return res.status(403).send('Document owner not approved.');
-  }
-
   try {
+    // Check if the document owner is approved
+    const approved = await isDocumentOwnerApproved(documentId);
+    if (!approved) {
+      console.log(`Document ${documentId} is not from an approved owner.`);
+      return res.status(403).send('Document owner not approved for processing.');
+    }
+
+    console.log(`Starting processing for document: ${documentId}`);
+
     const document = await fetchDocument(documentId);
     const questions = parseQuestions(document);
-    console.log(`Detected ${questions.length} questions in document ${documentId}`);
+
+    console.log(`Detected ${questions.length} question(s) in the document.`);
 
     for (const question of questions) {
       if (!question.answered) {
+        console.log(`Processing question: "${question.text}"`);
         const answer = await generateAnswer(question.text);
-        if (answer) {
-          const insertIndex = document.body.content[question.index].endIndex - 1;
-          await simulateTypingAndInsert(documentId, insertIndex, `\n${answer}`);
-          await new Promise((res) => setTimeout(res, 2000)); // Delay between questions
+        if (!answer) {
+          console.log('No answer generated.');
+          continue;
         }
+
+        const insertIndex = document.body.content[question.index].endIndex - 1;
+        const fullAnswer = `\n${answer}`;
+        console.log(`Inserting answer at index ${insertIndex}`);
+        await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause between questions
       }
     }
-    res.send(`Processed document: ${documentId}`);
+
+    console.log(`Finished processing document: ${documentId}`);
+
+    // Ensure this is the only response sent to the client
+    if (!res.headersSent) {
+      res.send(`Processed document: ${documentId}`);
+    }
   } catch (error) {
-    console.error('Error processing document:', error.message);
-    res.status(500).send('Internal Server Error');
+    console.error('Error processing document:', error);
+
+    // Only send an error response if headers have not already been sent
+    if (!res.headersSent) {
+      res.status(500).send('Error processing document.');
+    }
   }
 });
 
