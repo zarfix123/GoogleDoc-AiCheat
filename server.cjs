@@ -48,30 +48,36 @@ async function fetchDocument(docId) {
 
 async function isDocumentOwnerApproved(docId) {
   try {
+    // Fetch the file metadata, including the owners
     const res = await drive.files.get({
       fileId: docId,
-      fields: 'owners(emailAddress)'
+      fields: 'owners(emailAddress, displayName)' // Fetch owner's name and email for better logging
     });
+
     const owners = res.data.owners || [];
-    const unapproved = owners.filter(
-      (owner) => !approvedEmails.map((email) => email.toLowerCase()).includes(owner.emailAddress.toLowerCase())
+
+    // Log all owners of the document for debugging
+    console.log(`Owners of document ${docId}:`, owners.map((owner) => owner.emailAddress));
+
+    // Check if any owner is in the approved email list
+    const isApproved = owners.some((owner) =>
+      approvedEmails.map((email) => email.toLowerCase()).includes(owner.emailAddress.toLowerCase())
     );
 
-    if (unapproved.length > 0) {
-      console.log(
-        `Document ${docId} has unapproved owner(s):`,
-        unapproved.map((owner) => owner.emailAddress)
+    if (!isApproved) {
+      console.warn(
+        `Document ${docId} has unapproved owners:`,
+        owners.map((owner) => `${owner.displayName} <${owner.emailAddress}>`)
       );
     }
 
-    return owners.some((owner) =>
-      approvedEmails.map((email) => email.toLowerCase()).includes(owner.emailAddress.toLowerCase())
-    );
+    return isApproved;
   } catch (error) {
-    console.error('Error checking document owner:', error);
-    return false;
+    console.error('Error checking document owner:', error.response?.data || error.message);
+    return false; // Default to not approved if an error occurs
   }
 }
+
 
 function parseQuestions(document) {
   const content = document.body.content || [];
