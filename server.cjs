@@ -143,9 +143,79 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   }
 }
 
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Welcome</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 2em; text-align: center; }
+        h1 { color: #333; }
+      </style>
+    </head>
+    <body>
+      <h1>Welcome to HomeAITob</h1>
+      <p>Your document assistant is ready to help!</p>
+      <a href="/start">Get Started</a>
+    </body>
+    </html>
+  `);
+});
+
+// Start route
+app.get('/start', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Start</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 2em; text-align: center; }
+        h1 { color: #333; }
+      </style>
+    </head>
+    <body>
+      <h1>Get Started</h1>
+      <p>To use the assistant, enter your document ID in the URL.</p>
+      <p>Example: <code>/start/{documentId}</code></p>
+      <a href="/">Go Back Home</a>
+    </body>
+    </html>
+  `);
+});
+
 // Routes
 app.get('/start/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
+  if (!documentId) {
+    return res.status(400).send('Missing document ID.');
+  }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Processing Document</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 2em; text-align: center; }
+        h1 { color: #333; }
+      </style>
+    </head>
+    <body>
+      <h1>Processing Document</h1>
+      <p>Document ID: ${documentId}</p>
+      <p>Processing your document. This may take a moment...</p>
+      <a href="/">Go Back Home</a>
+    </body>
+    </html>
+  `);
   if (!documentId) return res.status(400).send('Missing document ID.');
 
   if (!await isDocumentOwnerApproved(documentId)) {
