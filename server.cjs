@@ -182,8 +182,13 @@ app.get('/start', (req, res) => {
     <body>
       <h1>Help:</h1>
       <p>To use the assistant, enter your document ID in the URL.</p>
-      <p>https://docs.google.com/document/d/ ** {document-ID} ** /edit</p>\
+      <p>Example: www.homeaitob.org/start/ ** {document-ID} ** </p>
+      <p></p>
+      <p>Find your document ID by opening your document and copying the ID from the URL.</p>
+      <p>https://docs.google.com/document/d/ ** {document-ID} ** /edit</p>
+      <p></p>
       <p>Note: Will not work unless you are an approved user. </p>
+      <p></p>
       <a href="/">Go Back Home</a>
     </body>
     </html>
