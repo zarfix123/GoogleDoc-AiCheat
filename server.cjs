@@ -211,82 +211,82 @@ function normalizeText(text) {
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
  */
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
-  // Concatenate all text from the document
-  let fullText = '';
-  content.forEach((element) => {
-    if (element.paragraph) {
-      element.paragraph.elements.forEach((el) => {
-        if (el.textRun && el.textRun.content) {
-          fullText += el.textRun.content;
-        }
-      });
-      fullText += '\n'; // Preserve paragraph breaks
-    }
-  });
+  // Concatenate all text from the document and map paragraphs
+  const paragraphs = content
+    .filter(element => element.paragraph)
+    .map(element => {
+      return element.paragraph.elements
+        .filter(el => el.textRun && el.textRun.content)
+        .map(el => el.textRun.content)
+        .join('') // Combine all text runs within the paragraph
+        .trim();
+    });
 
   // Detect questions using OpenAI
-  const detectedQuestions = await detectQuestions(fullText);
+  const detectedQuestions = await detectQuestions(paragraphs.join('\n'));
 
   console.log('Detected Questions from OpenAI:', detectedQuestions);
 
-  // Normalize the document text for matching
-  const normalizedFullText = normalizeText(fullText);
+  // Normalize detected questions
+  const normalizedDetectedQuestions = detectedQuestions.map(q => normalizeText(q));
 
   // Define a similarity threshold (0 to 1)
   const similarityThreshold = 0.8;
 
-  // Locate questions in the document and map to endIndex using fuzzy matching
+  // Locate questions in the document using per-paragraph matching
   const questions = [];
-  detectedQuestions.forEach((question) => {
-    // Normalize the detected question
-    const normalizedQuestion = normalizeText(question);
-
-    // Initialize variables to track the best match
+  detectedQuestions.forEach((question, index) => {
+    const normalizedQuestion = normalizedDetectedQuestions[index];
     let bestMatch = null;
     let highestSimilarity = 0;
 
-    // Iterate through each paragraph to find the best match
-    content.forEach((element) => {
-      if (element.paragraph) {
-        element.paragraph.elements.forEach((el) => {
-          if (el.textRun && el.textRun.content) {
-            const text = el.textRun.content;
-            const normalizedText = normalizeText(text);
+    paragraphs.forEach((paraText, paraIndex) => {
+      const normalizedParaText = normalizeText(paraText);
 
-            // Calculate similarity
-            const distance = getLevenshteinDistance(normalizedQuestion, normalizedText);
-            const maxLength = Math.max(normalizedQuestion.length, normalizedText.length);
-            const similarity = 1 - distance / maxLength;
+      // Calculate similarity
+      const distance = getLevenshteinDistance(normalizedQuestion, normalizedParaText);
+      const maxLength = Math.max(normalizedQuestion.length, normalizedParaText.length);
+      const similarity = 1 - distance / maxLength;
 
-            // Log the similarity for debugging
-            console.log(`Comparing "${normalizedQuestion}" with "${normalizedText}": Similarity = ${similarity.toFixed(2)}`);
+      // Log the similarity for debugging
+      console.log(`Comparing "${normalizedQuestion}" with "${normalizedParaText}": Similarity = ${similarity.toFixed(2)}`);
 
-            // Update best match based on similarity
-            if (similarity > highestSimilarity) {
-              highestSimilarity = similarity;
-              bestMatch = element.endIndex; // Use the paragraph's endIndex
-            }
+      // Update best match based on similarity
+      if (similarity > highestSimilarity) {
+        highestSimilarity = similarity;
+        bestMatch = paraIndex; // Use the paragraph's index
+      }
 
-            // Exact match check
-            if (normalizedQuestion === normalizedText && similarity === 1) {
-              highestSimilarity = similarity;
-              bestMatch = element.endIndex;
-            }
-          }
-        });
+      // Exact match check
+      if (normalizedQuestion === normalizedParaText && similarity === 1) {
+        highestSimilarity = similarity;
+        bestMatch = paraIndex;
       }
     });
 
-    // Check if the best match exceeds the similarity threshold
-    if (bestMatch && (highestSimilarity >= similarityThreshold || normalizedQuestion === normalizeText(fullText))) {
-      questions.push({
-        text: question, // Use the original question text
-        endIndex: bestMatch,
-      });
-      console.log(`Matched Question: "${question}" with similarity ${highestSimilarity.toFixed(2)}`);
+    // Check if the best match exceeds the similarity threshold or is an exact match
+    if (bestMatch !== null && highestSimilarity >= similarityThreshold) {
+      // Retrieve the corresponding endIndex from the content array
+      const matchedElement = content[bestMatch];
+      const endIndex = matchedElement.endIndex || null;
+
+      if (endIndex) {
+        questions.push({
+          text: question, // Use the original question text
+          endIndex: endIndex,
+        });
+        console.log(`Matched Question: "${question}" with similarity ${highestSimilarity.toFixed(2)}`);
+      } else {
+        console.warn(`No endIndex found for matched paragraph: "${question}"`);
+      }
     } else {
       console.warn(`Question not found in document: "${question}" (Highest Similarity: ${highestSimilarity.toFixed(2)})`);
     }
@@ -296,11 +296,6 @@ async function parseQuestions(document) {
 
   return questions;
 }
-
-
-
-
-
 
 /**
  * Map a character index to Google Docs' endIndex.
