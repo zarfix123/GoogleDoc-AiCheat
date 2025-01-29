@@ -1,9 +1,10 @@
+// server.cjs
+
 require('dotenv').config();
 const express = require('express');
 const { google } = require('googleapis');
 const axios = require('axios');
 
-const processedDocs = new Set();
 const app = express();
 app.use(express.json());
 
@@ -12,13 +13,13 @@ const approvedEmails = [
   'zarfix.42@gmail.com',
   'dennis24.f@gmail.com',
   '26freymand@mbusdapps.org',
-  ...(process.env.APPROVED_EMAILS ? process.env.APPROVED_EMAILS.split(',') : []) // Add emails from .env
+  ...(process.env.APPROVED_EMAILS ? process.env.APPROVED_EMAILS.split(',') : []) // Add emails from .env if any
 ];
 
 // Initialize Google APIs
 const credentials = {
   client_email: process.env.CLIENT_EMAIL,
-  private_key: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
+  private_key: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'), // Handle newline characters
   token_uri: process.env.TOKEN_URI,
 };
 const SCOPES = [
@@ -36,16 +37,12 @@ const docs = google.docs({ version: 'v1', auth });
 const drive = google.drive({ version: 'v3', auth });
 
 // Utility Functions
-async function fetchDocument(docId) {
-  try {
-    const res = await docs.documents.get({ documentId: docId });
-    return res.data;
-  } catch (error) {
-    console.error(`Failed to fetch document ${docId}:`, error.response?.data || error.message);
-    throw error;
-  }
-}
 
+/**
+ * Check if the document owner is approved.
+ * @param {string} docId - The Google Docs Document ID.
+ * @returns {Promise<boolean>} - Returns true if approved, else false.
+ */
 async function isDocumentOwnerApproved(docId) {
   try {
     // Fetch the file metadata, including the owners
@@ -78,7 +75,26 @@ async function isDocumentOwnerApproved(docId) {
   }
 }
 
-// New Function: Detect Questions using OpenAI
+/**
+ * Fetch the Google Docs document content.
+ * @param {string} docId - The Google Docs Document ID.
+ * @returns {Promise<object>} - Returns the document data.
+ */
+async function fetchDocument(docId) {
+  try {
+    const res = await docs.documents.get({ documentId: docId });
+    return res.data;
+  } catch (error) {
+    console.error(`Failed to fetch document ${docId}:`, error.response?.data || error.message);
+    throw error;
+  }
+}
+
+/**
+ * Detect questions in the document text using OpenAI.
+ * @param {string} documentText - The full text of the document.
+ * @returns {Promise<string[]>} - Returns an array of detected questions.
+ */
 async function detectQuestions(documentText) {
   try {
     const response = await axios.post(
@@ -124,7 +140,11 @@ async function detectQuestions(documentText) {
   }
 }
 
-// Updated Function: Parse Questions by Relying on OpenAI's Detection
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
   
@@ -170,7 +190,12 @@ async function parseQuestions(document) {
   return questions;
 }
 
-// Helper Function: Map Character Index to Google Docs endIndex
+/**
+ * Map a character index to Google Docs' endIndex.
+ * @param {object[]} content - The content array from the Google Docs document.
+ * @param {number} characterIndex - The character index in the fullText.
+ * @returns {number|null} - Returns the endIndex or null if not found.
+ */
 function mapCharacterIndexToEndIndex(content, characterIndex) {
   let currentChar = 0;
   for (const element of content) {
@@ -192,7 +217,11 @@ function mapCharacterIndexToEndIndex(content, characterIndex) {
   return null; // Not found
 }
 
-// Existing Function: Generate Answer remains the same
+/**
+ * Generate an answer for a given question using OpenAI.
+ * @param {string} questionText - The question to answer.
+ * @returns {Promise<string|null>} - Returns the answer text or null if failed.
+ */
 async function generateAnswer(questionText) {
   try {
     const response = await axios.post(
@@ -219,7 +248,13 @@ async function generateAnswer(questionText) {
   }
 }
 
-// Updated Function: Simulate Typing and Insert in Chunks
+/**
+ * Simulate typing and insert text into the Google Docs document in chunks.
+ * @param {string} docId - The Google Docs Document ID.
+ * @param {number} insertIndex - The index where text should be inserted.
+ * @param {string} answerText - The answer text to insert.
+ * @returns {Promise<number>} - Returns the number of characters inserted.
+ */
 async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   const words = answerText.split(' ');
   const chunkSize = 5; // Number of words per batch
@@ -254,7 +289,11 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   return totalInserted; // Return the number of characters inserted
 }
 
-// Home Page Route
+// Routes
+
+/**
+ * Home Page Route
+ */
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -304,134 +343,9 @@ app.get('/', (req, res) => {
   `);
 });
 
-// About Page Route
-app.get('/about', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>About - HomeAItoB</title>
-      <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 2em; 
-          background-color: #f4f4f4;
-          color: #333;
-        }
-        .container { 
-          background-color: #fff; 
-          padding: 2em; 
-          border-radius: 8px; 
-          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-          max-width: 800px; 
-          margin: auto;
-        }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-        a {
-          color: #007bff;
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>About HomeAItoB</h1>
-        <p>
-          Welcome to <strong>HomeAItoB</strong>, your integrated AI assistant designed to enhance your Google Docs experience. Whether you're a student, teacher, or professional, HomeAItoB helps you by automatically detecting questions in your documents and providing insightful answers.
-        </p>
-        <h2>About the Creator</h2>
-        <p>
-          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, the creator aimed to build a tool that simplifies the process of understanding and enriching written content. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity.
-        </p>
-        <h2>Features</h2>
-        <ul>
-          <li>Automatically detects and processes questions within your Google Docs.</li>
-          <li>Provides well-researched and accurate answers to your queries.</li>
-          <li>Ensures seamless integration without disrupting your document's flow.</li>
-        </ul>
-        <p>
-          Thank you for using HomeAItoB! We hope this tool enhances your document creation and study processes.
-        </p>
-        <p>
-          <a href="/">Go Back Home</a> | <a href="/purchase">Purchase</a>
-        </p>
-      </div>
-    </body>
-    </html>
-  `);
-});
-
-// Purchase Page Route (Placeholder)
-app.get('/purchase', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Purchase - HomeAItoB</title>
-      <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 2em; 
-          background-color: #f4f4f4;
-          color: #333;
-        }
-        .container { 
-          background-color: #fff; 
-          padding: 2em; 
-          border-radius: 8px; 
-          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-          max-width: 600px; 
-          margin: auto;
-          text-align: center;
-        }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-        a {
-          color: #007bff;
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-        button {
-          padding: 0.5em 1em;
-          background-color: #007bff;
-          color: #fff;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          margin-top: 1em;
-        }
-        button:hover {
-          background-color: #0056b3;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>Purchase Coming Soon!</h1>
-        <p>
-          We're working hard to bring you premium features and support HomeAItoB's development. Stay tuned for updates on purchase options and exclusive benefits.
-        </p>
-        <button disabled>Purchase Options Coming Soon</button>
-        <p>
-          <a href="/">Go Back Home</a> | <a href="/about">About</a>
-        </p>
-      </div>
-    </body>
-    </html>
-  `);
-});
-
-// Start Page Route - Serves the Form
+/**
+ * Start Page Route - Serves the Form
+ */
 app.get('/start', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -514,10 +428,12 @@ app.get('/start', (req, res) => {
   `);
 });
 
-
-// `/start/:documentId` Route
+/**
+ * `/start/:documentId` Route - Serves the Processing Page with Real-Time Feedback
+ */
 app.get('/start/:documentId', (req, res) => {
   const documentId = req.params.documentId;
+  
   if (!documentId) {
     return res.status(400).send(`
       <!DOCTYPE html>
@@ -584,6 +500,7 @@ app.get('/start/:documentId', (req, res) => {
           box-shadow: 0 0 10px rgba(0,0,0,0.1); 
           max-width: 600px; 
           margin: auto;
+          position: relative;
         }
         h1 { color: #333; }
         p { line-height: 1.6; }
@@ -633,8 +550,8 @@ app.get('/start/:documentId', (req, res) => {
       <div class="container">
         <h1>Processing Document</h1>
         <p>Document ID: ${documentId}</p>
-        <div class="spinner"></div>
-        <div class="message">Your document is being processed. Please wait...</div>
+        <div class="spinner" id="spinner"></div>
+        <div class="message" id="processingMessage">Your document is being processed. Please wait...</div>
         <div id="feedback"></div>
         <p><a href="/">Go Back Home</a></p>
       </div>
@@ -650,6 +567,14 @@ app.get('/start/:documentId', (req, res) => {
           feedbackDiv.appendChild(message);
         }
 
+        // Function to remove spinner and processing message
+        function removeProcessingElements() {
+          const spinner = document.getElementById('spinner');
+          const processingMessage = document.getElementById('processingMessage');
+          if (spinner) spinner.style.display = 'none';
+          if (processingMessage) processingMessage.style.display = 'none';
+        }
+
         // Initiate processing via AJAX
         async function processDocument() {
           try {
@@ -660,12 +585,14 @@ app.get('/start/:documentId', (req, res) => {
               }
             });
             const data = await response.json();
+            removeProcessingElements();
             if (response.ok) {
               displayMessage('success', data.message);
             } else {
               displayMessage('error', data.error);
             }
           } catch (error) {
+            removeProcessingElements();
             displayMessage('error', 'An unexpected error occurred. Please try again later.');
           }
         }
@@ -678,7 +605,9 @@ app.get('/start/:documentId', (req, res) => {
   `);
 });
 
-// API Endpoint to Process the Document
+/**
+ * API Endpoint to Process the Document
+ */
 app.post('/api/process/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
   
@@ -697,7 +626,7 @@ app.post('/api/process/:documentId', async (req, res) => {
     console.log(`Starting processing for document: ${documentId}`);
 
     const document = await fetchDocument(documentId);
-    const questions = await parseQuestions(document); // Ensure this function is properly defined
+    const questions = await parseQuestions(document); // Using OpenAI's detection
 
     console.log(`Detected ${questions.length} question(s) in the document.`);
     console.log('Questions to process:', questions.map(q => q.text));
@@ -752,7 +681,139 @@ app.post('/api/process/:documentId', async (req, res) => {
   }
 });
 
+/**
+ * About Page Route
+ */
+app.get('/about', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>About - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 800px; 
+          margin: auto;
+        }
+        h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>About HomeAItoB</h1>
+        <p>
+          Welcome to <strong>HomeAItoB</strong>, your integrated AI assistant designed to enhance your Google Docs experience. Whether you're a student, teacher, or professional, HomeAItoB helps you by automatically detecting questions in your documents and providing insightful answers.
+        </p>
+        <h2>About the Creator</h2>
+        <p>
+          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, the creator aimed to build a tool that simplifies the process of understanding and enriching written content. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity.
+        </p>
+        <h2>Features</h2>
+        <ul>
+          <li>Automatically detects and processes questions within your Google Docs.</li>
+          <li>Provides well-researched and accurate answers to your queries.</li>
+          <li>Ensures seamless integration without disrupting your document's flow.</li>
+        </ul>
+        <p>
+          Thank you for using HomeAItoB! We hope this tool enhances your document creation and study processes.
+        </p>
+        <p>
+          <a href="/">Go Back Home</a> | <a href="/purchase">Purchase</a>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
 
+/**
+ * Purchase Page Route (Placeholder)
+ */
+app.get('/purchase', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Purchase - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+          text-align: center;
+        }
+        h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+        button {
+          padding: 0.5em 1em;
+          background-color: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 1em;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Purchase Coming Soon!</h1>
+        <p>
+          We're working hard to bring you premium features and support HomeAItoB's development. Stay tuned for updates on purchase options and exclusive benefits.
+        </p>
+        <button disabled>Purchase Options Coming Soon</button>
+        <p>
+          <a href="/">Go Back Home</a> | <a href="/about">About</a>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
 
+/**
+ * Start the Server
+ */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
