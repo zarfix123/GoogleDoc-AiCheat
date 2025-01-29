@@ -153,7 +153,7 @@ async function detectQuestions(documentText) {
 async function parseQuestions(document) {
   const content = document.body.content || [];
   
-  // Concatenate all text from the document
+  // Concatenate all text from the document for OpenAI detection
   let fullText = '';
   content.forEach((element) => {
     if (element.paragraph) {
@@ -171,28 +171,50 @@ async function parseQuestions(document) {
 
   console.log('Detected Questions from OpenAI:', detectedQuestions);
 
-  // Locate questions in the document and map to endIndex
   const questions = [];
-  detectedQuestions.forEach((question) => {
-    const escapedQuestion = question.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape special characters
-    const regex = new RegExp(escapedQuestion, 'g'); // Create a global regex
-    let match;
-    while ((match = regex.exec(fullText)) !== null) {
-      const characterIndex = match.index + match[0].length;
-      const insertIndex = mapCharacterIndexToEndIndex(content, characterIndex);
-      if (insertIndex !== null) {
-        questions.push({
-          text: question,
-          endIndex: insertIndex
-        });
+  const unmatchedQuestions = [];
+
+  // Iterate through each detected question
+  for (const question of detectedQuestions) {
+    let found = false;
+
+    // Iterate through each paragraph to find the question
+    for (const element of content) {
+      if (element.paragraph) {
+        const paragraphText = element.paragraph.elements.map(el => el.textRun?.content || '').join('');
+        
+        // Check if the paragraph contains the question
+        if (paragraphText.includes(question)) {
+          const insertIndex = element.endIndex;
+          questions.push({
+            text: question,
+            endIndex: insertIndex
+          });
+          found = true;
+          break; // Move to the next question after finding a match
+        }
       }
     }
-  });
+
+    // If the question wasn't found in any paragraph, log it
+    if (!found) {
+      console.warn(`Question not found in document: "${question}"`);
+      unmatchedQuestions.push(question);
+    }
+  }
 
   console.log('Final Questions to process:', questions.map(q => q.text));
+  
+  // Optionally, handle unmatched questions (e.g., notify the user or append at the end)
+  if (unmatchedQuestions.length > 0) {
+    console.warn(`Unmatched Questions:`, unmatchedQuestions);
+    // Example: Append a message for unmatched questions (optional)
+    // You can choose to handle this as per your requirements
+  }
 
   return questions;
 }
+
 
 /**
  * Map a character index to Google Docs' endIndex.
@@ -641,41 +663,37 @@ app.post('/api/process/:documentId', async (req, res) => {
     }
 
     // Sort questions in ascending order of endIndex to insert answers chronologically
+// Sort questions in ascending order of endIndex to insert answers chronologically
     questions.sort((a, b) => a.endIndex - b.endIndex);
 
     let cumulativeOffset = 0; // Initialize cumulative offset
 
     for (const question of questions) {
-      if (!question.answered) {
-        console.log(`Processing question: "${question.text}"`);
-        const answer = await generateAnswer(question.text);
-        if (!answer) {
-          console.log('No answer generated.');
-          continue;
-        }
-
-        let insertIndex = question.endIndex - 1 + cumulativeOffset; // Adjusted insertion index
-
-        // Safeguard: Ensure insertIndex is within bounds
-        if (insertIndex < 0) {
-          console.warn(`Invalid insertIndex ${insertIndex} for question "${question.text}". Skipping insertion.`);
-          continue;
-        }
-
-        const fullAnswer = `\nAnswer: ${answer}\n`;
-        console.log(`Inserting answer at index ${insertIndex}`);
-        const insertedChars = await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
-
-        // Update cumulativeOffset based on the number of characters inserted
-        cumulativeOffset += insertedChars;
-
-        // No need to pause between questions for user feedback; processing is done server-side
+      console.log(`Processing question: "${question.text}"`);
+      const answer = await generateAnswer(question.text);
+      if (!answer) {
+        console.log('No answer generated.');
+        continue;
       }
+
+      let insertIndex = question.endIndex - 1 + cumulativeOffset; // Adjusted insertion index
+
+      // Safeguard: Ensure insertIndex is within bounds
+      if (insertIndex < 0) {
+        console.warn(`Invalid insertIndex ${insertIndex} for question "${question.text}". Skipping insertion.`);
+        continue;
+      }
+
+      const fullAnswer = `\nAnswer: ${answer}\n`;
+      console.log(`Inserting answer at index ${insertIndex}`);
+      const insertedChars = await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
+
+      // Update cumulativeOffset based on the number of characters inserted
+      cumulativeOffset += insertedChars;
     }
 
     console.log(`Finished processing document: ${documentId}`);
 
-    // Send Success Response
     res.status(200).json({ message: 'Your document has been processed successfully.' });
   } catch (error) {
     console.error('Error processing document:', error);
