@@ -88,14 +88,15 @@ async function detectQuestions(documentText) {
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant that extracts all questions from the provided text.'
+            content: 'You are an assistant that extracts all unique questions from the provided text.'
           },
           {
             role: 'user',
-            content: `Extract all the questions from the following document text. Provide them as a JSON array of strings.\n\n${documentText}`
+            content: `Extract all the unique questions from the following document text. Provide them as a JSON array of strings without any additional text.\n\n${documentText}`
           }
         ],
-        max_tokens: 1000
+        max_tokens: 1000,
+        temperature: 0 // Set temperature to 0 for deterministic output
       },
       {
         headers: {
@@ -105,9 +106,18 @@ async function detectQuestions(documentText) {
       }
     );
 
-    const questionsText = response.data.choices[0]?.message?.content?.trim();
-    const questions = JSON.parse(questionsText);
-    return questions;
+    let questionsText = response.data.choices[0]?.message?.content?.trim();
+
+    // Ensure the response is a valid JSON array
+    try {
+      let questions = JSON.parse(questionsText);
+      // Remove any duplicate questions
+      questions = [...new Set(questions.map(q => q.trim()))];
+      return questions;
+    } catch (parseError) {
+      console.error('Error parsing questions JSON:', parseError.message);
+      return [];
+    }
   } catch (error) {
     console.error('Error detecting questions with OpenAI API:', error.response?.data || error.message);
     return [];
@@ -118,13 +128,18 @@ async function detectQuestions(documentText) {
 async function parseQuestions(document) {
   const content = document.body.content || [];
   let fullText = '';
+  const elementIndices = []; // To map character positions to structural indices
 
-  // Concatenate all text from the document
+  // Concatenate all text from the document and track indices
   content.forEach((element) => {
     if (element.paragraph) {
       element.paragraph.elements.forEach((el) => {
         if (el.textRun && el.textRun.content) {
-          fullText += el.textRun.content;
+          const start = fullText.length + 1; // Google Docs API starts at 1
+          const text = el.textRun.content;
+          fullText += text;
+          const end = fullText.length + 1;
+          elementIndices.push({ start, end, element: el });
         }
       });
       fullText += '\n'; // Preserve paragraph breaks
@@ -134,32 +149,36 @@ async function parseQuestions(document) {
   // Detect questions using OpenAI
   const detectedQuestions = await detectQuestions(fullText);
 
+  console.log('Detected Questions from OpenAI:', detectedQuestions);
+
   // Locate questions in the document
   const questions = [];
+
   detectedQuestions.forEach((question) => {
-    // Find the index of the question in the document
-    const index = fullText.indexOf(question);
-    if (index !== -1) {
-      // Map the character index to a structural index in the document
-      let cumulativeIndex = 1; // Google Docs API starts indexing at 1
-      for (const element of content) {
-        if (element.paragraph) {
-          for (const el of element.paragraph.elements) {
-            if (el.textRun && el.textRun.content) {
-              const text = el.textRun.content;
-              if (cumulativeIndex + text.length > index) {
-                questions.push({
-                  text: question,
-                  location: cumulativeIndex + text.indexOf(question) + question.length,
-                  answered: false
-                });
-                break;
-              }
-              cumulativeIndex += text.length;
-            }
-          }
+    let searchStartIndex = 0;
+    while (true) {
+      const index = fullText.indexOf(question, searchStartIndex);
+      if (index === -1) break;
+
+      // Find the corresponding structural index
+      const charIndex = index + 1; // Google Docs API starts at 1
+      let location = null;
+      for (const elem of elementIndices) {
+        if (charIndex >= elem.start && charIndex < elem.end) {
+          location = charIndex + question.length;
+          break;
         }
       }
+
+      if (location !== null) {
+        questions.push({
+          text: question,
+          location: location,
+          answered: false
+        });
+      }
+
+      searchStartIndex = index + question.length;
     }
   });
 
@@ -314,6 +333,15 @@ app.get('/start/:documentId', async (req, res) => {
     const questions = await parseQuestions(document); // Await the updated parseQuestions
 
     console.log(`Detected ${questions.length} question(s) in the document.`);
+    console.log('Questions to process:', questions.map(q => q.text));
+
+    if (questions.length === 0) {
+      console.log('No questions detected in the document.');
+      return;
+    }
+
+    // Sort questions in descending order of location to prevent index shifting
+    questions.sort((a, b) => b.location - a.location);
 
     for (const question of questions) {
       if (!question.answered) {
