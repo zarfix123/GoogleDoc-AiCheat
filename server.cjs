@@ -78,23 +78,95 @@ async function isDocumentOwnerApproved(docId) {
   }
 }
 
+// New Function: Detect Questions using OpenAI
+async function detectQuestions(documentText) {
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an assistant that extracts all questions from the provided text.'
+          },
+          {
+            role: 'user',
+            content: `Extract all the questions from the following document text. Provide them as a JSON array of strings.\n\n${documentText}`
+          }
+        ],
+        max_tokens: 1000
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        }
+      }
+    );
 
-function parseQuestions(document) {
+    const questionsText = response.data.choices[0]?.message?.content?.trim();
+    const questions = JSON.parse(questionsText);
+    return questions;
+  } catch (error) {
+    console.error('Error detecting questions with OpenAI API:', error.response?.data || error.message);
+    return [];
+  }
+}
+
+// Updated Function: Parse Questions by Detecting via OpenAI
+async function parseQuestions(document) {
   const content = document.body.content || [];
-  const questions = [];
-  content.forEach((element, i) => {
+  let fullText = '';
+
+  // Concatenate all text from the document
+  content.forEach((element) => {
     if (element.paragraph) {
-      const textRun = element.paragraph.elements?.[0]?.textRun?.content?.trim();
-      if (textRun && textRun.endsWith('?')) {
-        const next = content[i + 1];
-        const answered = next?.paragraph?.elements?.[0]?.textRun?.content?.startsWith('Answer:') || false;
-        questions.push({ text: textRun, index: i, answered });
+      element.paragraph.elements.forEach((el) => {
+        if (el.textRun && el.textRun.content) {
+          fullText += el.textRun.content;
+        }
+      });
+      fullText += '\n'; // Preserve paragraph breaks
+    }
+  });
+
+  // Detect questions using OpenAI
+  const detectedQuestions = await detectQuestions(fullText);
+
+  // Locate questions in the document
+  const questions = [];
+  detectedQuestions.forEach((question) => {
+    // Find the index of the question in the document
+    const index = fullText.indexOf(question);
+    if (index !== -1) {
+      // Map the character index to a structural index in the document
+      let cumulativeIndex = 1; // Google Docs API starts indexing at 1
+      for (const element of content) {
+        if (element.paragraph) {
+          for (const el of element.paragraph.elements) {
+            if (el.textRun && el.textRun.content) {
+              const text = el.textRun.content;
+              if (cumulativeIndex + text.length > index) {
+                questions.push({
+                  text: question,
+                  location: cumulativeIndex + text.indexOf(question) + question.length,
+                  answered: false
+                });
+                break;
+              }
+              cumulativeIndex += text.length;
+            }
+          }
+        }
       }
     }
   });
+
   return questions;
 }
 
+// Existing Function: Generate Answer remains the same
 async function generateAnswer(questionText) {
   try {
     const response = await axios.post(
@@ -121,25 +193,34 @@ async function generateAnswer(questionText) {
   }
 }
 
+// Updated Function: Simulate Typing and Insert in Chunks
 async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   const words = answerText.split(' ');
+  const chunkSize = 5; // Number of words per batch
   const wordsPerMinute = 100 + Math.random() * 20; // Faster typing
-  const delay = (60 / wordsPerMinute) * 1000;
+  const delay = (60 / wordsPerMinute) * 1000; // Delay between words in ms
 
-  for (const [i, word] of words.entries()) {
-    const text = word + (i < words.length - 1 ? ' ' : '');
-    const requests = [{ insertText: { location: { index: insertIndex }, text } }];
+  for (let i = 0; i < words.length; i += chunkSize) {
+    const chunk = words.slice(i, i + chunkSize).join(' ') + ' ';
+    const requests = [
+      {
+        insertText: {
+          location: { index: insertIndex },
+          text: chunk
+        }
+      }
+    ];
     try {
       await docs.documents.batchUpdate({
         documentId: docId,
         requestBody: { requests },
       });
-      insertIndex += text.length;
+      insertIndex += chunk.length;
     } catch (error) {
       console.error('Error inserting text:', error.message);
       break;
     }
-    await new Promise((res) => setTimeout(res, delay));
+    await new Promise((res) => setTimeout(res, delay * chunkSize)); // Pause based on number of words
   }
 }
 
@@ -158,7 +239,7 @@ app.get('/', (req, res) => {
     </head>
     <body>
       <h1>Welcome to HomeAItoB</h1>
-      <p>Your document-integrated ai is ready to help!</p>
+      <p>Your document-integrated AI is ready to help!</p>
       <a href="/start">Get Started</a>
     </body>
     </html>
@@ -182,13 +263,10 @@ app.get('/start', (req, res) => {
     <body>
       <h1>Help:</h1>
       <p>To use the assistant, enter your document ID in the URL.</p>
-      <p>Example: www.homeaitob.org/start/ ** {document-ID} ** </p>
-      <p></p>
+      <p>Example: www.homeaitob.org/start/<strong>{document-ID}</strong></p>
       <p>Find your document ID by opening your document and copying the ID from the URL.</p>
-      <p>https://docs.google.com/document/d/ ** {document-ID} ** /edit</p>
-      <p></p>
-      <p>Note: Will not work unless you are an approved user. </p>
-      <p></p>
+      <p>https://docs.google.com/document/d/<strong>{document-ID}</strong>/edit</p>
+      <p>Note: Will not work unless you are an approved user.</p>
       <a href="/">Go Back Home</a>
     </body>
     </html>
@@ -233,7 +311,7 @@ app.get('/start/:documentId', async (req, res) => {
     console.log(`Starting processing for document: ${documentId}`);
 
     const document = await fetchDocument(documentId);
-    const questions = parseQuestions(document);
+    const questions = await parseQuestions(document); // Await the updated parseQuestions
 
     console.log(`Detected ${questions.length} question(s) in the document.`);
 
@@ -246,8 +324,8 @@ app.get('/start/:documentId', async (req, res) => {
           continue;
         }
 
-        const insertIndex = document.body.content[question.index].endIndex - 1;
-        const fullAnswer = `\n${answer}`;
+        const insertIndex = question.location;
+        const fullAnswer = `\nAnswer: ${answer}\n`;
         console.log(`Inserting answer at index ${insertIndex}`);
         await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
         await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause between questions
