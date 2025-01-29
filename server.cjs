@@ -374,6 +374,69 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
+// Purchase Page Route (Placeholder)
+app.get('/purchase', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Purchase - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+          text-align: center;
+        }
+        h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+        button {
+          padding: 0.5em 1em;
+          background-color: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 1em;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Purchase Coming Soon!</h1>
+        <p>
+          We're working hard to bring you premium features and support HomeAItoB's development. Stay tuned for updates on purchase options and exclusive benefits.
+        </p>
+        <button disabled>Purchase Options Coming Soon</button>
+        <p>
+          <a href="/">Go Back Home</a> | <a href="/about">About</a>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
 
 // About Page Route
 app.get('/about', (req, res) => {
