@@ -128,61 +128,49 @@ async function detectQuestions(documentText) {
 async function parseQuestions(document) {
   const content = document.body.content || [];
   let fullText = '';
-  const elementIndices = []; // To map character positions to structural indices
-
-  // Concatenate all text from the document and track indices
-  content.forEach((element) => {
-    if (element.paragraph) {
-      element.paragraph.elements.forEach((el) => {
-        if (el.textRun && el.textRun.content) {
-          const start = fullText.length + 1; // Google Docs API starts at 1
-          const text = el.textRun.content;
-          fullText += text;
-          const end = fullText.length + 1;
-          elementIndices.push({ start, end, element: el });
-        }
-      });
-      fullText += '\n'; // Preserve paragraph breaks
-    }
-  });
-
-  // Detect questions using OpenAI
-  const detectedQuestions = await detectQuestions(fullText);
-
-  console.log('Detected Questions from OpenAI:', detectedQuestions);
-
-  // Locate questions in the document
   const questions = [];
 
-  detectedQuestions.forEach((question) => {
-    let searchStartIndex = 0;
-    while (true) {
-      const index = fullText.indexOf(question, searchStartIndex);
-      if (index === -1) break;
-
-      // Find the corresponding structural index
-      const charIndex = index + 1; // Google Docs API starts at 1
-      let location = null;
-      for (const elem of elementIndices) {
-        if (charIndex >= elem.start && charIndex < elem.end) {
-          location = charIndex + question.length;
-          break;
+  // Traverse the document's structural elements to find questions
+  content.forEach((element) => {
+    if (element.paragraph) {
+      // Concatenate text within the paragraph
+      let paragraphText = '';
+      element.paragraph.elements.forEach((el) => {
+        if (el.textRun && el.textRun.content) {
+          paragraphText += el.textRun.content;
         }
-      }
-
-      if (location !== null) {
+      });
+      // Check if the paragraph ends with a question mark
+      if (paragraphText.trim().endsWith('?')) {
         questions.push({
-          text: question,
-          location: location,
+          text: paragraphText.trim(),
+          endIndex: element.endIndex, // Position right after the paragraph
           answered: false
         });
       }
-
-      searchStartIndex = index + question.length;
     }
   });
 
-  return questions;
+  console.log('Questions detected based on structure:', questions.map(q => q.text));
+
+  // Further validate questions using OpenAI to ensure accuracy
+  const documentText = content.map(element => {
+    if (element.paragraph) {
+      return element.paragraph.elements.map(el => el.textRun?.content || '').join('');
+    }
+    return '';
+  }).join('\n');
+
+  const detectedQuestions = await detectQuestions(documentText);
+
+  console.log('Detected Questions from OpenAI:', detectedQuestions);
+
+  // Filter questions to only include those detected by OpenAI
+  const finalQuestions = questions.filter(q => detectedQuestions.includes(q.text));
+
+  console.log('Final Questions to process:', finalQuestions.map(q => q.text));
+
+  return finalQuestions;
 }
 
 // Existing Function: Generate Answer remains the same
@@ -341,7 +329,7 @@ app.get('/start/:documentId', async (req, res) => {
     }
 
     // Sort questions in descending order of location to prevent index shifting
-    questions.sort((a, b) => b.location - a.location);
+    questions.sort((a, b) => b.endIndex - a.endIndex);
 
     for (const question of questions) {
       if (!question.answered) {
@@ -352,7 +340,7 @@ app.get('/start/:documentId', async (req, res) => {
           continue;
         }
 
-        const insertIndex = question.location;
+        const insertIndex = question.endIndex;
         const fullAnswer = `\nAnswer: ${answer}\n`;
         console.log(`Inserting answer at index ${insertIndex}`);
         await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
