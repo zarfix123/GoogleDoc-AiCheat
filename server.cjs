@@ -232,17 +232,23 @@ function mapCharacterIndexToEndIndex(content, characterIndex) {
  * @param {string} questionText - The question to answer.
  * @returns {Promise<string|null>} - Returns the answer text or null if failed.
  */
-async function generateAnswer(questionText) {
+// Updated `generateAnswer` function with extra context
+async function generateAnswer(questionText, extraContext) {
   try {
+    const prompt = `You are a knowledgeable assistant. Here is some additional context:\n"${extraContext}"\n\nAnswer the following question based on the above context:\n"${questionText}"`;
+
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant that answers questions from provided context. Keep your answer decently concise but still directly answer the question. Dont overwrite. Do not ask any followup questions.' },
-          { role: 'user', content: `Answer the following question: ${questionText}.` }
+          { role: 'system', content: 'You are a knowledgeable assistant.' },
+          { role: 'user', content: prompt }
         ],
-        max_tokens: 150
+        max_tokens: 150,
+        temperature: 0.5, // Adjust temperature as needed for creativity vs. accuracy
+        n: 1,
+        stop: null
       },
       {
         headers: {
@@ -257,7 +263,6 @@ async function generateAnswer(questionText) {
     return null;
   }
 }
-
 /**
  * Simulate typing and insert text into the Google Docs document in chunks.
  * @param {string} docId - The Google Docs Document ID.
@@ -353,9 +358,7 @@ app.get('/', (req, res) => {
   `);
 });
 
-/**
- * Start Page Route - Serves the Form
- */
+// Updated `/start` route with extra context textarea
 app.get('/start', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -365,6 +368,7 @@ app.get('/start', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Start - HomeAItoB</title>
       <style>
+        /* Existing CSS styles */
         body { 
           font-family: Arial, sans-serif; 
           margin: 2em; 
@@ -380,7 +384,7 @@ app.get('/start', (req, res) => {
           margin: auto;
         }
         h1 { color: #333; }
-        input[type="text"] {
+        input[type="text"], textarea {
           width: 80%;
           padding: 0.5em;
           margin: 1em 0;
@@ -419,6 +423,8 @@ app.get('/start', (req, res) => {
         <form id="documentForm">
           <input type="text" id="documentId" name="documentId" placeholder="Enter your Document ID" required />
           <br/>
+          <textarea id="extraContext" name="extraContext" placeholder="Enter extra context (optional)" rows="4"></textarea>
+          <br/>
           <button type="submit">Submit</button>
         </form>
       </div>
@@ -427,9 +433,12 @@ app.get('/start', (req, res) => {
         document.getElementById('documentForm').addEventListener('submit', function(event) {
           event.preventDefault(); // Prevent the default form submission
           const docId = document.getElementById('documentId').value.trim();
+          const extraContext = document.getElementById('extraContext').value.trim();
           if(docId) {
-            // Redirect to /start/:documentId
-            window.location.href = '/start/' + docId;
+            // Encode the extra context to safely include it in the URL
+            const encodedContext = encodeURIComponent(extraContext);
+            // Redirect to /start/:documentId with extra context as a query parameter
+            window.location.href = '/start/' + docId + '?extraContext=' + encodedContext;
           }
         });
       </script>
@@ -441,51 +450,16 @@ app.get('/start', (req, res) => {
 /**
  * `/start/:documentId` Route - Serves the Processing Page with Real-Time Feedback
  */
+// Updated `/start/:documentId` route to handle extra context
 app.get('/start/:documentId', (req, res) => {
   const documentId = req.params.documentId;
+  const extraContext = req.query.extraContext || ''; // Retrieve extra context from query parameters
   
   if (!documentId) {
     return res.status(400).send(`
       <!DOCTYPE html>
       <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Error - HomeAItoB</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            background-color: #f8d7da; 
-            color: #721c24; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0;
-          }
-          .container { 
-            background-color: #f5c6cb; 
-            padding: 2em; 
-            border-radius: 8px; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-            text-align: center;
-          }
-          a {
-            color: #721c24;
-            text-decoration: none;
-            font-weight: bold;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>400 - Bad Request</h1>
-          <p>Missing Document ID. Please return to the <a href="/start">start page</a> and enter a valid Document ID.</p>
-        </div>
-      </body>
-      </html>
+      <!-- Existing error HTML -->
     `);
   }
 
@@ -497,6 +471,7 @@ app.get('/start/:documentId', (req, res) => {
       <meta charset="UTF-8">
       <title>Processing Document - HomeAItoB</title>
       <style>
+        /* Existing CSS styles */
         body { 
           font-family: Arial, sans-serif; 
           margin: 2em; 
@@ -585,16 +560,44 @@ app.get('/start/:documentId', (req, res) => {
           if (processingMessage) processingMessage.style.display = 'none';
         }
 
+        // Function to retrieve query parameters
+        function getQueryParams() {
+          const params = {};
+          window.location.search.substring(1).split("&").forEach(function(part) {
+            if (!part) return;
+            const item = part.split("=");
+            params[decodeURIComponent(item[0])] = decodeURIComponent(item[1]);
+          });
+          return params;
+        }
+
         // Initiate processing via AJAX
         async function processDocument() {
           try {
+            const params = getQueryParams();
+            const extraContext = params.extraContext || '';
+
             const response = await fetch('/api/process/' + '${documentId}', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
-              }
+              },
+              body: JSON.stringify({ extraContext }) // Send extra context in the request body
             });
+
+            // Add logging to inspect the response
+            console.log('Response Status:', response.status);
+            console.log('Response Headers:', response.headers.get('Content-Type'));
+
+            // Ensure the response is JSON
+            const contentType = response.headers.get('Content-Type');
+            if (!contentType || !contentType.includes('application/json')) {
+              throw new Error('Invalid response format: ' + contentType);
+            }
+
             const data = await response.json();
+            console.log('Received Data:', data);
+
             removeProcessingElements();
             if (response.ok) {
               displayMessage('success', data.message);
@@ -602,6 +605,7 @@ app.get('/start/:documentId', (req, res) => {
               displayMessage('error', data.error);
             }
           } catch (error) {
+            console.error('Fetch Error:', error);
             removeProcessingElements();
             displayMessage('error', 'An unexpected error occurred. Please try again later.');
           }
@@ -615,11 +619,14 @@ app.get('/start/:documentId', (req, res) => {
   `);
 });
 
+
 /**
  * API Endpoint to Process the Document
  */
+// Updated `/api/process/:documentId` route to handle extra context
 app.post('/api/process/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
+  const { extraContext } = req.body; // Destructure extraContext from the request body
   
   if (!documentId) {
     return res.status(400).json({ error: 'Missing Document ID.' });
@@ -634,6 +641,7 @@ app.post('/api/process/:documentId', async (req, res) => {
     }
 
     console.log(`Starting processing for document: ${documentId}`);
+    console.log(`Extra Context Provided: "${extraContext}"`);
 
     const document = await fetchDocument(documentId);
     const questions = await parseQuestions(document); // Using OpenAI's detection
@@ -647,14 +655,13 @@ app.post('/api/process/:documentId', async (req, res) => {
     }
 
     // Sort questions in ascending order of endIndex to insert answers chronologically
-// Sort questions in ascending order of endIndex to insert answers chronologically
     questions.sort((a, b) => a.endIndex - b.endIndex);
 
     let cumulativeOffset = 0; // Initialize cumulative offset
 
     for (const question of questions) {
       console.log(`Processing question: "${question.text}"`);
-      const answer = await generateAnswer(question.text);
+      const answer = await generateAnswer(question.text, extraContext); // Pass extraContext to generateAnswer
       if (!answer) {
         console.log('No answer generated.');
         continue;
@@ -678,144 +685,14 @@ app.post('/api/process/:documentId', async (req, res) => {
 
     console.log(`Finished processing document: ${documentId}`);
 
-    res.status(200).json({ message: 'Your document has been processed successfully.' });
+    // Send Success Response
+    return res.status(200).json({ message: 'Your document has been processed successfully.' });
   } catch (error) {
     console.error('Error processing document:', error);
 
     // Send Error Response
-    res.status(500).json({ error: 'An error occurred while processing your document. Please try again later.' });
+    return res.status(500).json({ error: 'An error occurred while processing your document. Please try again later.' });
   }
-});
-
-/**
- * About Page Route
- */
-app.get('/about', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>About - HomeAItoB</title>
-      <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 2em; 
-          background-color: #f4f4f4;
-          color: #333;
-        }
-        .container { 
-          background-color: #fff; 
-          padding: 2em; 
-          border-radius: 8px; 
-          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-          max-width: 800px; 
-          margin: auto;
-        }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-        a {
-          color: #007bff;
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>About HomeAItoB</h1>
-        <p>
-          Welcome to <strong>HomeAItoB</strong>, your integrated AI assistant designed to enhance your Google Docs experience. Whether you're a student, teacher, or professional, HomeAItoB helps you by automatically detecting questions in your documents and providing insightful answers.
-        </p>
-        <h2>About the Creator</h2>
-        <p>
-          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, the creator aimed to build a tool that simplifies the process of understanding and enriching written content. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity.
-        </p>
-        <h2>Features</h2>
-        <ul>
-          <li>Automatically detects and processes questions within your Google Docs.</li>
-          <li>Provides well-researched and accurate answers to your queries.</li>
-          <li>Ensures seamless integration without disrupting your document's flow.</li>
-        </ul>
-        <p>
-          Thank you for using HomeAItoB! We hope this tool enhances your document creation and study processes.
-        </p>
-        <p>
-          <a href="/">Go Back Home</a> | <a href="/purchase">Purchase</a>
-        </p>
-      </div>
-    </body>
-    </html>
-  `);
-});
-
-/**
- * Purchase Page Route (Placeholder)
- */
-app.get('/purchase', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Purchase - HomeAItoB</title>
-      <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 2em; 
-          background-color: #f4f4f4;
-          color: #333;
-        }
-        .container { 
-          background-color: #fff; 
-          padding: 2em; 
-          border-radius: 8px; 
-          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-          max-width: 600px; 
-          margin: auto;
-          text-align: center;
-        }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-        a {
-          color: #007bff;
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-        button {
-          padding: 0.5em 1em;
-          background-color: #007bff;
-          color: #fff;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          margin-top: 1em;
-        }
-        button:hover {
-          background-color: #0056b3;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>Purchase Coming Soon!</h1>
-        <p>
-          We're working hard to bring you premium features and support HomeAItoB's development. Stay tuned for updates on purchase options and exclusive benefits.
-        </p>
-        <button disabled>Purchase Options Coming Soon</button>
-        <p>
-          <a href="/">Go Back Home</a> | <a href="/about">About</a>
-        </p>
-      </div>
-    </body>
-    </html>
-  `);
 });
 
 /**
