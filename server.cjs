@@ -503,6 +503,9 @@ app.get('/about', (req, res) => {
 
 
 // Updated `/start` route with extra context textarea
+/**
+ * Start Page Route - Serves the Form with Extra Context and Back Home Button
+ */
 app.get('/start', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -512,7 +515,6 @@ app.get('/start', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Start - HomeAItoB</title>
       <style>
-        /* Existing CSS styles */
         body { 
           font-family: Arial, sans-serif; 
           margin: 2em; 
@@ -535,15 +537,18 @@ app.get('/start', (req, res) => {
           border: 1px solid #ccc;
           border-radius: 4px;
         }
-        button {
+        button, .back-button {
           padding: 0.5em 1em;
           background-color: #28a745;
           color: #fff;
           border: none;
           border-radius: 4px;
           cursor: pointer;
+          margin: 0.5em;
+          text-decoration: none;
+          display: inline-block;
         }
-        button:hover {
+        button:hover, .back-button:hover {
           background-color: #218838;
         }
         .directions {
@@ -559,14 +564,9 @@ app.get('/start', (req, res) => {
           <h3>How to Find Your Document ID:</h3>
           <ol>
             <li>Open your Google Docs document.</li>
-            <li>Share your google doc document to <code>impersonate@service-448308.iam.gserviceaccount.com</code></li>
-
             <li>Look at the URL in your browser's address bar.</li>
             <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
-
             <li>It should look something like this: <code>1OY_nkK0sIb60qtFiY6CqMgrPviRKME9TBDyY8yR_ojc</code></li>
-
-            <li>(Optional) Enter any extra context (like documents) to help the AI understand the context.</li>
           </ol>
         </div>
         <form id="documentForm">
@@ -575,6 +575,7 @@ app.get('/start', (req, res) => {
           <textarea id="extraContext" name="extraContext" placeholder="Enter extra context (optional)" rows="4"></textarea>
           <br/>
           <button type="submit">Submit</button>
+          <a href="/" class="back-button">Back Home</a>
         </form>
       </div>
       
@@ -595,6 +596,7 @@ app.get('/start', (req, res) => {
     </html>
   `);
 });
+
 
 /**
  * `/start/:documentId` Route - Serves the Processing Page with Real-Time Feedback
