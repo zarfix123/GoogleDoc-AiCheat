@@ -205,6 +205,7 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   const chunkSize = 5; // Number of words per batch
   const wordsPerMinute = 100 + Math.random() * 20; // Faster typing
   const delay = (60 / wordsPerMinute) * 1000; // Delay between words in ms
+  let totalInserted = 0; // Track total characters inserted
 
   for (let i = 0; i < words.length; i += chunkSize) {
     const chunk = words.slice(i, i + chunkSize).join(' ') + ' ';
@@ -221,6 +222,7 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
         documentId: docId,
         requestBody: { requests },
       });
+      totalInserted += chunk.length;
       insertIndex += chunk.length;
     } catch (error) {
       console.error(`Error inserting text at index ${insertIndex}:`, error.message);
@@ -228,6 +230,8 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
     }
     await new Promise((res) => setTimeout(res, delay * chunkSize)); // Pause based on number of words
   }
+
+  return totalInserted; // Return the number of characters inserted
 }
 
 app.get('/', (req, res) => {
@@ -327,8 +331,10 @@ app.get('/start/:documentId', async (req, res) => {
       return;
     }
 
-    // Sort questions in descending order of endIndex to prevent index shifting
-    questions.sort((a, b) => b.endIndex - a.endIndex);
+    // Sort questions in ascending order of endIndex to insert answers chronologically
+    questions.sort((a, b) => a.endIndex - b.endIndex);
+
+    let cumulativeOffset = 0; // Initialize cumulative offset
 
     for (const question of questions) {
       if (!question.answered) {
@@ -339,7 +345,7 @@ app.get('/start/:documentId', async (req, res) => {
           continue;
         }
 
-        let insertIndex = question.endIndex - 1; // Adjusted insertion index
+        let insertIndex = question.endIndex - 1 + cumulativeOffset; // Adjusted insertion index
 
         // Safeguard: Ensure insertIndex is within bounds
         if (insertIndex < 0) {
@@ -349,7 +355,11 @@ app.get('/start/:documentId', async (req, res) => {
 
         const fullAnswer = `\nAnswer: ${answer}\n`;
         console.log(`Inserting answer at index ${insertIndex}`);
-        await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
+        const insertedChars = await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
+
+        // Update cumulativeOffset based on the number of characters inserted
+        cumulativeOffset += insertedChars;
+
         await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause between questions
       }
     }
