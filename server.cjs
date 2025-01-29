@@ -127,7 +127,6 @@ async function detectQuestions(documentText) {
 // Updated Function: Parse Questions by Detecting via OpenAI
 async function parseQuestions(document) {
   const content = document.body.content || [];
-  let fullText = '';
   const questions = [];
 
   // Traverse the document's structural elements to find questions
@@ -224,7 +223,7 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
       });
       insertIndex += chunk.length;
     } catch (error) {
-      console.error('Error inserting text:', error.message);
+      console.error(`Error inserting text at index ${insertIndex}:`, error.message);
       break;
     }
     await new Promise((res) => setTimeout(res, delay * chunkSize)); // Pause based on number of words
@@ -328,7 +327,7 @@ app.get('/start/:documentId', async (req, res) => {
       return;
     }
 
-    // Sort questions in descending order of location to prevent index shifting
+    // Sort questions in descending order of endIndex to prevent index shifting
     questions.sort((a, b) => b.endIndex - a.endIndex);
 
     for (const question of questions) {
@@ -340,7 +339,14 @@ app.get('/start/:documentId', async (req, res) => {
           continue;
         }
 
-        const insertIndex = question.endIndex;
+        let insertIndex = question.endIndex - 1; // Adjusted insertion index
+
+        // Safeguard: Ensure insertIndex is within bounds
+        if (insertIndex < 0) {
+          console.warn(`Invalid insertIndex ${insertIndex} for question "${question.text}". Skipping insertion.`);
+          continue;
+        }
+
         const fullAnswer = `\nAnswer: ${answer}\n`;
         console.log(`Inserting answer at index ${insertIndex}`);
         await simulateTypingAndInsert(documentId, insertIndex, fullAnswer);
