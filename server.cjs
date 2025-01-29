@@ -527,7 +527,7 @@ app.get('/start', (req, res) => {
         }
         h1 { color: #333; }
         input[type="text"], textarea {
-          width: 80%;
+          width: 100%;
           padding: 0.5em;
           margin: 1em 0;
           border: 1px solid #ccc;
@@ -560,7 +560,7 @@ app.get('/start', (req, res) => {
           <h3>How to Find Your Document ID:</h3>
           <ol>
             <li>Open your Google Docs document.</li>
-            <li>Share your google doc document to <code>impersonate@service-448308.iam.gserviceaccount.com<code></li>
+            <li>Share your google doc document to <strong>impersonate@service-448308.iam.gserviceaccount.com</strong></li>
 
             <li>Look at the URL in your browser's address bar.</li>
             <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
@@ -573,7 +573,7 @@ app.get('/start', (req, res) => {
         <form id="documentForm">
           <input type="text" id="documentId" name="documentId" placeholder="Enter your Document ID" required />
           <br/>
-          <textarea id="extraContext" name="extraContext" placeholder="Enter extra context (optional)" rows="4"></textarea>
+          <textarea id="extraContext" name="extraContext" placeholder="Enter extra context (optional)" rows="5"></textarea>
           <br/>
           <button type="submit">Submit</button>
           <a href="/" class="back-button">Back Home</a>
