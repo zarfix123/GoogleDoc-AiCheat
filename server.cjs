@@ -527,7 +527,7 @@ app.get('/start', (req, res) => {
         }
         h1 { color: #333; }
         input[type="text"], textarea {
-          width: 100%;
+          width: 90%;
           padding: 0.5em;
           margin: 1em 0;
           border: 1px solid #ccc;
