@@ -254,7 +254,7 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   return totalInserted; // Return the number of characters inserted
 }
 
-// Existing Home Route remains the same
+// Home Page Route
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -431,7 +431,7 @@ app.get('/purchase', (req, res) => {
   `);
 });
 
-// Existing `/start/:documentId` Route remains unchanged
+// `/start/:documentId` Route
 app.get('/start/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
   if (!documentId) {
