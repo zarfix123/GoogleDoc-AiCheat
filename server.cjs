@@ -233,20 +233,32 @@ function mapCharacterIndexToEndIndex(content, characterIndex) {
  * @returns {Promise<string|null>} - Returns the answer text or null if failed.
  */
 // Updated `generateAnswer` function with extra context
+/**
+ * Generate an answer for a given question using OpenAI.
+ * @param {string} questionText - The question to answer.
+ * @param {string} [extraContext] - Additional context provided by the user (optional).
+ * @returns {Promise<string|null>} - Returns the answer text or null if failed.
+ */
 async function generateAnswer(questionText, extraContext) {
   try {
-    const prompt = `You are a knowledgeable assistant. Here is some additional context:\n"${extraContext}"\n\nAnswer the following question based on the above context:\n"${questionText}"`;
+    // Base prompt without extra context
+    let prompt = `You are a knowledgeable assistant. Answer the following question:\n"${questionText}"`;
+
+    // If extraContext is provided and not empty, include it in the prompt
+    if (extraContext && extraContext.trim() !== '') {
+      prompt = `You are a knowledgeable assistant. Here is some additional context:\n"${extraContext}"\n\nAnswer the following question based on the above context:\n"${questionText}"`;
+    }
 
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: 'You are a knowledgeable assistant.' },
+          { role: 'system', content: 'You are a knowledgeable assistant. Answer all questions in a correct, direct, yet concise manner.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 150,
-        temperature: 0.5, // Adjust temperature as needed for creativity vs. accuracy
+        temperature: 0.5, // Adjust as needed for creativity vs. accuracy
         n: 1,
         stop: null
       },
@@ -257,12 +269,15 @@ async function generateAnswer(questionText, extraContext) {
         }
       }
     );
-    return response.data.choices[0]?.message?.content?.trim();
+
+    // Extract and return the AI's response
+    return response.data.choices[0]?.message?.content?.trim() || null;
   } catch (error) {
     console.error('Error calling OpenAI API:', error.response?.data || error.message);
     return null;
   }
 }
+
 /**
  * Simulate typing and insert text into the Google Docs document in chunks.
  * @param {string} docId - The Google Docs Document ID.
@@ -270,6 +285,8 @@ async function generateAnswer(questionText, extraContext) {
  * @param {string} answerText - The answer text to insert.
  * @returns {Promise<number>} - Returns the number of characters inserted.
  */
+
+
 async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   const words = answerText.split(' ');
   const chunkSize = 5; // Number of words per batch
