@@ -139,7 +139,24 @@ async function detectQuestions(documentText) {
     return [];
   }
 }
+/**
+ * Normalize text by converting to lowercase and removing punctuation.
+ * @param {string} text - The text to normalize.
+ * @returns {string} - The normalized text.
+ */
+function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .replace(/[.,!?;:]+/g, '') // Remove punctuation
+    .replace(/\s+/g, ' ')       // Replace multiple spaces with single space
+    .trim();
+}
 
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 /**
  * Parse questions from the document using OpenAI's detection.
  * @param {object} document - The Google Docs document object.
@@ -147,7 +164,7 @@ async function detectQuestions(documentText) {
  */
 async function parseQuestions(document) {
   const content = document.body.content || [];
-  
+
   // Concatenate all text from the document
   let fullText = '';
   content.forEach((element) => {
@@ -166,30 +183,52 @@ async function parseQuestions(document) {
 
   console.log('Detected Questions from OpenAI:', detectedQuestions);
 
-  // Locate questions in the document and map to endIndex
+  // Normalize the document text for matching
+  const normalizedFullText = normalizeText(fullText);
+
+  // Define a similarity threshold (0 to 1)
+  const similarityThreshold = 0.8;
+
+  // Locate questions in the document and map to endIndex using fuzzy matching
   const questions = [];
   detectedQuestions.forEach((question) => {
-    // Remove trailing punctuation from the detected question for flexibility
-    const trimmedQuestion = question.replace(/[.,!?;:]+$/, '');
-    
-    // Escape special characters in the trimmed question
-    const escapedQuestion = trimmedQuestion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
-    
-    // Create a regex that allows for optional punctuation at the end
-    const regex = new RegExp(`${escapedQuestion}[.,!?;:]*`, 'gi'); // 'i' for case-insensitive
-    
-    let match;
-    while ((match = regex.exec(fullText)) !== null) {
-      const characterIndex = match.index + match[0].length;
-      const insertIndex = mapCharacterIndexToEndIndex(content, characterIndex);
-      if (insertIndex !== null) {
-        questions.push({
-          text: trimmedQuestion, // Use the trimmed question without punctuation
-          endIndex: insertIndex
+    // Normalize the detected question
+    const normalizedQuestion = normalizeText(question);
+
+    // Initialize variables to track the best match
+    let bestMatch = null;
+    let highestSimilarity = 0;
+
+    // Iterate through each paragraph to find the best match
+    content.forEach((element) => {
+      if (element.paragraph) {
+        element.paragraph.elements.forEach((el) => {
+          if (el.textRun && el.textRun.content) {
+            const text = el.textRun.content;
+            const normalizedText = normalizeText(text);
+
+            // Calculate similarity
+            const distance = levenshtein.get(normalizedQuestion, normalizedText);
+            const maxLength = Math.max(normalizedQuestion.length, normalizedText.length);
+            const similarity = 1 - distance / maxLength;
+
+            if (similarity > highestSimilarity) {
+              highestSimilarity = similarity;
+              bestMatch = element.endIndex; // Use the paragraph's endIndex
+            }
+          }
         });
-      } else {
-        console.warn(`Question not found in document: "${question}"`);
       }
+    });
+
+    // Check if the best match exceeds the similarity threshold
+    if (bestMatch && highestSimilarity >= similarityThreshold) {
+      questions.push({
+        text: question, // Use the original question text
+        endIndex: bestMatch,
+      });
+    } else {
+      console.warn(`Question not found in document: "${question}"`);
     }
   });
 
@@ -197,6 +236,7 @@ async function parseQuestions(document) {
 
   return questions;
 }
+
 
 
 
