@@ -91,6 +91,45 @@ async function fetchDocument(docId) {
 }
 
 /**
+ * Calculate the Levenshtein distance between two strings.
+ * @param {string} a - First string.
+ * @param {string} b - Second string.
+ * @returns {number} - The Levenshtein distance.
+ */
+function getLevenshteinDistance(a, b) {
+  const matrix = [];
+
+  // Ensure neither string is empty
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Initialize the first row and column of the matrix
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  // Populate the rest of the matrix
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,    // Deletion
+          matrix[i][j - 1] + 1,    // Insertion
+          matrix[i - 1][j - 1] + 1 // Substitution
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
  * Detect questions in the document text using OpenAI.
  * @param {string} documentText - The full text of the document.
  * @returns {Promise<string[]>} - Returns an array of detected questions.
@@ -162,6 +201,11 @@ function normalizeText(text) {
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
  */
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
@@ -208,7 +252,7 @@ async function parseQuestions(document) {
             const normalizedText = normalizeText(text);
 
             // Calculate similarity
-            const distance = levenshtein.get(normalizedQuestion, normalizedText);
+            const distance = getLevenshteinDistance(normalizedQuestion, normalizedText);
             const maxLength = Math.max(normalizedQuestion.length, normalizedText.length);
             const similarity = 1 - distance / maxLength;
 
@@ -236,6 +280,7 @@ async function parseQuestions(document) {
 
   return questions;
 }
+
 
 
 
