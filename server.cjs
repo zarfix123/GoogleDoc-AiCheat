@@ -206,6 +206,11 @@ function normalizeText(text) {
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
  */
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
@@ -256,9 +261,19 @@ async function parseQuestions(document) {
             const maxLength = Math.max(normalizedQuestion.length, normalizedText.length);
             const similarity = 1 - distance / maxLength;
 
+            // Log the similarity for debugging
+            console.log(`Comparing "${normalizedQuestion}" with "${normalizedText}": Similarity = ${similarity.toFixed(2)}`);
+
+            // Update best match based on similarity
             if (similarity > highestSimilarity) {
               highestSimilarity = similarity;
               bestMatch = element.endIndex; // Use the paragraph's endIndex
+            }
+
+            // Exact match check
+            if (normalizedQuestion === normalizedText && similarity === 1) {
+              highestSimilarity = similarity;
+              bestMatch = element.endIndex;
             }
           }
         });
@@ -266,13 +281,14 @@ async function parseQuestions(document) {
     });
 
     // Check if the best match exceeds the similarity threshold
-    if (bestMatch && highestSimilarity >= similarityThreshold) {
+    if (bestMatch && (highestSimilarity >= similarityThreshold || normalizedQuestion === normalizeText(fullText))) {
       questions.push({
         text: question, // Use the original question text
         endIndex: bestMatch,
       });
+      console.log(`Matched Question: "${question}" with similarity ${highestSimilarity.toFixed(2)}`);
     } else {
-      console.warn(`Question not found in document: "${question}"`);
+      console.warn(`Question not found in document: "${question}" (Highest Similarity: ${highestSimilarity.toFixed(2)})`);
     }
   });
 
@@ -280,6 +296,7 @@ async function parseQuestions(document) {
 
   return questions;
 }
+
 
 
 
