@@ -239,8 +239,8 @@ async function generateAnswer(questionText) {
       {
         model: 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant that answers questions from provided context.' },
-          { role: 'user', content: `Answer the following question: ${questionText}. Keep your answer long enough to directly answer the question, dont overwrite. Do not ask any followup questions.` }
+          { role: 'system', content: 'You are a helpful assistant that answers questions from provided context. Keep your answer decently concise but still directly answer the question. Dont overwrite. Do not ask any followup questions.' },
+          { role: 'user', content: `Answer the following question: ${questionText}.` }
         ],
         max_tokens: 150
       },
