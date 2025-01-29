@@ -145,15 +145,10 @@ async function detectQuestions(documentText) {
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
  */
-/**
- * Parse questions from the document using OpenAI's detection.
- * @param {object} document - The Google Docs document object.
- * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
- */
 async function parseQuestions(document) {
   const content = document.body.content || [];
   
-  // Concatenate all text from the document for OpenAI detection
+  // Concatenate all text from the document
   let fullText = '';
   content.forEach((element) => {
     if (element.paragraph) {
@@ -171,49 +166,38 @@ async function parseQuestions(document) {
 
   console.log('Detected Questions from OpenAI:', detectedQuestions);
 
+  // Locate questions in the document and map to endIndex
   const questions = [];
-  const unmatchedQuestions = [];
-
-  // Iterate through each detected question
-  for (const question of detectedQuestions) {
-    let found = false;
-
-    // Iterate through each paragraph to find the question
-    for (const element of content) {
-      if (element.paragraph) {
-        const paragraphText = element.paragraph.elements.map(el => el.textRun?.content || '').join('');
-        
-        // Check if the paragraph contains the question
-        if (paragraphText.includes(question)) {
-          const insertIndex = element.endIndex;
-          questions.push({
-            text: question,
-            endIndex: insertIndex
-          });
-          found = true;
-          break; // Move to the next question after finding a match
-        }
+  detectedQuestions.forEach((question) => {
+    // Remove trailing punctuation from the detected question for flexibility
+    const trimmedQuestion = question.replace(/[.,!?;:]+$/, '');
+    
+    // Escape special characters in the trimmed question
+    const escapedQuestion = trimmedQuestion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+    
+    // Create a regex that allows for optional punctuation at the end
+    const regex = new RegExp(`${escapedQuestion}[.,!?;:]*`, 'gi'); // 'i' for case-insensitive
+    
+    let match;
+    while ((match = regex.exec(fullText)) !== null) {
+      const characterIndex = match.index + match[0].length;
+      const insertIndex = mapCharacterIndexToEndIndex(content, characterIndex);
+      if (insertIndex !== null) {
+        questions.push({
+          text: trimmedQuestion, // Use the trimmed question without punctuation
+          endIndex: insertIndex
+        });
+      } else {
+        console.warn(`Question not found in document: "${question}"`);
       }
     }
-
-    // If the question wasn't found in any paragraph, log it
-    if (!found) {
-      console.warn(`Question not found in document: "${question}"`);
-      unmatchedQuestions.push(question);
-    }
-  }
+  });
 
   console.log('Final Questions to process:', questions.map(q => q.text));
-  
-  // Optionally, handle unmatched questions (e.g., notify the user or append at the end)
-  if (unmatchedQuestions.length > 0) {
-    console.warn(`Unmatched Questions:`, unmatchedQuestions);
-    // Example: Append a message for unmatched questions (optional)
-    // You can choose to handle this as per your requirements
-  }
 
   return questions;
 }
+
 
 
 /**
