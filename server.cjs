@@ -519,59 +519,99 @@ app.get('/start', (req, res) => {
 // `/start/:documentId` Route
 app.get('/start/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
+  
   if (!documentId) {
-    return res.status(400).send('Missing document ID.');
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Error - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0;
+          }
+          .container { 
+            background-color: #f5c6cb; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            text-align: center;
+          }
+          a {
+            color: #721c24;
+            text-decoration: none;
+            font-weight: bold;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>400 - Bad Request</h1>
+          <p>Missing Document ID. Please return to the <a href="/start">start page</a> and enter a valid Document ID.</p>
+        </div>
+      </body>
+      </html>
+    `);
   }
 
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Processing Document - HomeAItoB</title>
-      <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 2em; 
-          text-align: center; 
-          background-color: #f4f4f4;
-        }
-        .container { 
-          background-color: #fff; 
-          padding: 2em; 
-          border-radius: 8px; 
-          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-          max-width: 600px; 
-          margin: auto;
-        }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-        a {
-          color: #007bff;
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>Processing Document</h1>
-        <p>Document ID: ${documentId}</p>
-        <p>Processing your document. This may take a moment...</p>
-        <a href="/">Go Back Home</a>
-      </div>
-    </body>
-    </html>
-  `);
   try {
     // Check if the document owner is approved
     const approved = await isDocumentOwnerApproved(documentId);
     if (!approved) {
       console.log(`Document ${documentId} is not from an approved owner.`);
-      return res.status(403).send('Document owner not approved for processing.');
+      return res.status(403).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Access Denied - HomeAItoB</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              background-color: #f8d7da; 
+              color: #721c24; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              height: 100vh; 
+              margin: 0;
+            }
+            .container { 
+              background-color: #f5c6cb; 
+              padding: 2em; 
+              border-radius: 8px; 
+              box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+              text-align: center;
+            }
+            a {
+              color: #721c24;
+              text-decoration: none;
+              font-weight: bold;
+            }
+            a:hover {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>403 - Access Denied</h1>
+            <p>Your email address is not authorized to use this service. Please contact the administrator or return to the <a href="/">home page</a>.</p>
+          </div>
+        </body>
+        </html>
+      `);
     }
 
     console.log(`Starting processing for document: ${documentId}`);
@@ -584,7 +624,49 @@ app.get('/start/:documentId', async (req, res) => {
 
     if (questions.length === 0) {
       console.log('No questions detected in the document.');
-      return;
+      return res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>No Questions Found - HomeAItoB</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              background-color: #d4edda; 
+              color: #155724; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              height: 100vh; 
+              margin: 0;
+            }
+            .container { 
+              background-color: #c3e6cb; 
+              padding: 2em; 
+              border-radius: 8px; 
+              box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+              text-align: center;
+            }
+            a {
+              color: #155724;
+              text-decoration: none;
+              font-weight: bold;
+            }
+            a:hover {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>No Questions Found</h1>
+            <p>Your document does not contain any detectable questions. Please ensure your questions are properly formatted and try again.</p>
+            <p><a href="/start">Process Another Document</a></p>
+          </div>
+        </body>
+        </html>
+      `);
     }
 
     // Sort questions in ascending order of endIndex to insert answers chronologically
@@ -622,19 +704,101 @@ app.get('/start/:documentId', async (req, res) => {
 
     console.log(`Finished processing document: ${documentId}`);
 
-    // Ensure this is the only response sent to the client
-    if (!res.headersSent) {
-      res.send(`Processed document: ${documentId}`);
-    }
+    // Send Success Response
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Processing Complete - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            background-color: #d4edda; 
+            color: #155724; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0;
+          }
+          .container { 
+            background-color: #c3e6cb; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            text-align: center;
+          }
+          a {
+            color: #155724;
+            text-decoration: none;
+            font-weight: bold;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Processing Complete</h1>
+          <p>Your document has been processed successfully.</p>
+          <p><a href="/">Go Back Home</a></p>
+        </div>
+      </body>
+      </html>
+    `);
   } catch (error) {
     console.error('Error processing document:', error);
 
-    // Only send an error response if headers have not already been sent
-    if (!res.headersSent) {
-      res.status(500).send('Error processing document.');
-    }
+    // Send Error Response to the User
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Server Error - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0;
+          }
+          .container { 
+            background-color: #f5c6cb; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            text-align: center;
+          }
+          a {
+            color: #721c24;
+            text-decoration: none;
+            font-weight: bold;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>500 - Server Error</h1>
+          <p>Oops! Something went wrong while processing your document.</p>
+          <p>Please try again later or contact support.</p>
+          <p><a href="/">Go Back Home</a></p>
+        </div>
+      </body>
+      </html>
+    `);
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
