@@ -375,6 +375,70 @@ app.get('/', (req, res) => {
   `);
 });
 
+// About Page Route
+app.get('/about', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>About - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 800px; 
+          margin: auto;
+        }
+        h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>About HomeAItoB</h1>
+        <p>
+          Welcome to <strong>HomeAItoB</strong>, your integrated AI assistant designed to enhance your Google Docs experience. Whether you're a student, teacher, or professional, HomeAItoB helps you by automatically detecting questions in your documents and providing insightful answers.
+        </p>
+        <h2>About the Creator</h2>
+        <p>
+          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, the creator aimed to build a tool that simplifies the process of understanding and enriching written content. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity.
+        </p>
+        <h2>Features</h2>
+        <ul>
+          <li>Automatically detects and processes questions within your Google Docs.</li>
+          <li>Provides well-researched and accurate answers to your queries.</li>
+          <li>Ensures seamless integration without disrupting your document's flow.</li>
+        </ul>
+        <p>
+          Thank you for using HomeAItoB! We hope this tool enhances your document creation and study processes.
+        </p>
+        <p>
+          <a href="/">Go Back Home</a> | <a href="/purchase">Purchase</a>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+
 // Updated `/start` route with extra context textarea
 app.get('/start', (req, res) => {
   res.send(`
