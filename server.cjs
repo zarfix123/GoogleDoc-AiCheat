@@ -145,6 +145,11 @@ async function detectQuestions(documentText) {
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
  */
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
   
@@ -178,8 +183,7 @@ async function parseQuestions(document) {
       if (insertIndex !== null) {
         questions.push({
           text: question,
-          endIndex: insertIndex,
-          answered: false
+          endIndex: insertIndex
         });
       }
     }
@@ -480,7 +484,7 @@ app.get('/start/:documentId', (req, res) => {
   }
 
   // Serve the Processing Page with Loading Indicator
-  res.send(`
+  return res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
