@@ -431,6 +431,91 @@ app.get('/purchase', (req, res) => {
   `);
 });
 
+// Start Page Route - Serves the Form
+app.get('/start', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Start - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          text-align: center; 
+          background-color: #f4f4f4;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 500px; 
+          margin: auto;
+        }
+        h1 { color: #333; }
+        input[type="text"] {
+          width: 80%;
+          padding: 0.5em;
+          margin: 1em 0;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+        }
+        button {
+          padding: 0.5em 1em;
+          background-color: #28a745;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        button:hover {
+          background-color: #218838;
+        }
+        .directions {
+          text-align: left;
+          margin-bottom: 1em;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Process Your Document</h1>
+        <div class="directions">
+          <h3>How to Find Your Document ID:</h3>
+          <ol>
+            <li>Open your Google Docs document.</li>
+            <li>Look at the URL in your browser's address bar.</li>
+            <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
+            <li>It should look something like this: <code>1OY_nkK0sIb60qtFiY6CqMgrPviRKME9TBDyY8yR_ojc</code></li>
+          </ol>
+        </div>
+        <form id="documentForm">
+          <input type="text" id="documentId" name="documentId" placeholder="Enter your Document ID" required />
+          <br/>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+      
+      <script>
+        document.getElementById('documentForm').addEventListener('submit', function(event) {
+          event.preventDefault(); // Prevent the default form submission
+          const docId = document.getElementById('documentId').value.trim();
+          if(docId) {
+            // Redirect to /start/:documentId
+            window.location.href = '/start/' + docId;
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+
+
 // `/start/:documentId` Route
 app.get('/start/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
