@@ -230,7 +230,7 @@ async function generateAnswer(questionText) {
         model: 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: 'You are a helpful assistant that answers questions from provided context.' },
-          { role: 'user', content: `Answer the following question: ${questionText}` }
+          { role: 'user', content: `Answer the following question: ${questionText}. Keep your answer long enough to directly answer the question, dont overwrite. Do not ask any followup questions.` }
         ],
         max_tokens: 150
       },
@@ -665,7 +665,7 @@ app.post('/api/process/:documentId', async (req, res) => {
         // Update cumulativeOffset based on the number of characters inserted
         cumulativeOffset += insertedChars;
 
-        await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause between questions
+        // No need to pause between questions for user feedback; processing is done server-side
       }
     }
 
