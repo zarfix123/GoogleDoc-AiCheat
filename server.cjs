@@ -559,6 +559,7 @@ app.get('/start', (req, res) => {
           <h3>How to Find Your Document ID:</h3>
           <ol>
             <li>Open your Google Docs document.</li>
+            <li>Share your google doc document to <code>impersonate@service-448308.iam.gserviceaccount.com<code></li>
             <li>Look at the URL in your browser's address bar.</li>
             <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
             <li>It should look something like this: <code>1OY_nkK0sIb60qtFiY6CqMgrPviRKME9TBDyY8yR_ojc</code></li>
