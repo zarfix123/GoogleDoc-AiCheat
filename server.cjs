@@ -418,6 +418,7 @@ app.get('/start', (req, res) => {
             <li>Look at the URL in your browser's address bar.</li>
             <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
             <li>It should look something like this: <code>1OY_nkK0sIb60qtFiY6CqMgrPviRKME9TBDyY8yR_ojc</code></li>
+            <li>O</li>(Optional) Enter any extra context (like documents) to help the AI understand the context.</li>
           </ol>
         </div>
         <form id="documentForm">
