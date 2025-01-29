@@ -124,52 +124,72 @@ async function detectQuestions(documentText) {
   }
 }
 
-// Updated Function: Parse Questions by Detecting via OpenAI
+// Updated Function: Parse Questions by Relying on OpenAI's Detection
 async function parseQuestions(document) {
   const content = document.body.content || [];
-  const questions = [];
-
-  // Traverse the document's structural elements to find questions
+  
+  // Concatenate all text from the document
+  let fullText = '';
   content.forEach((element) => {
     if (element.paragraph) {
-      // Concatenate text within the paragraph
-      let paragraphText = '';
       element.paragraph.elements.forEach((el) => {
         if (el.textRun && el.textRun.content) {
-          paragraphText += el.textRun.content;
+          fullText += el.textRun.content;
         }
       });
-      // Check if the paragraph ends with a question mark
-      if (paragraphText.trim().endsWith('?')) {
+      fullText += '\n'; // Preserve paragraph breaks
+    }
+  });
+
+  // Detect questions using OpenAI
+  const detectedQuestions = await detectQuestions(fullText);
+
+  console.log('Detected Questions from OpenAI:', detectedQuestions);
+
+  // Locate questions in the document and map to endIndex
+  const questions = [];
+  detectedQuestions.forEach((question) => {
+    const escapedQuestion = question.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape special characters
+    const regex = new RegExp(escapedQuestion, 'g'); // Create a global regex
+    let match;
+    while ((match = regex.exec(fullText)) !== null) {
+      const characterIndex = match.index + match[0].length;
+      const insertIndex = mapCharacterIndexToEndIndex(content, characterIndex);
+      if (insertIndex !== null) {
         questions.push({
-          text: paragraphText.trim(),
-          endIndex: element.endIndex, // Position right after the paragraph
+          text: question,
+          endIndex: insertIndex,
           answered: false
         });
       }
     }
   });
 
-  console.log('Questions detected based on structure:', questions.map(q => q.text));
+  console.log('Final Questions to process:', questions.map(q => q.text));
 
-  // Further validate questions using OpenAI to ensure accuracy
-  const documentText = content.map(element => {
+  return questions;
+}
+
+// Helper Function: Map Character Index to Google Docs endIndex
+function mapCharacterIndexToEndIndex(content, characterIndex) {
+  let currentChar = 0;
+  for (const element of content) {
     if (element.paragraph) {
-      return element.paragraph.elements.map(el => el.textRun?.content || '').join('');
+      for (const el of element.paragraph.elements) {
+        if (el.textRun && el.textRun.content) {
+          const text = el.textRun.content;
+          const nextChar = currentChar + text.length;
+          if (characterIndex <= nextChar) {
+            return element.endIndex; // Insert after the current paragraph
+          }
+          currentChar = nextChar;
+        }
+      }
+      // Account for paragraph break
+      currentChar += 1; // Assuming '\n' is one character
     }
-    return '';
-  }).join('\n');
-
-  const detectedQuestions = await detectQuestions(documentText);
-
-  console.log('Detected Questions from OpenAI:', detectedQuestions);
-
-  // Filter questions to only include those detected by OpenAI
-  const finalQuestions = questions.filter(q => detectedQuestions.includes(q.text));
-
-  console.log('Final Questions to process:', finalQuestions.map(q => q.text));
-
-  return finalQuestions;
+  }
+  return null; // Not found
 }
 
 // Existing Function: Generate Answer remains the same
@@ -234,6 +254,7 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   return totalInserted; // Return the number of characters inserted
 }
 
+// Existing Home Route remains the same
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -241,49 +262,176 @@ app.get('/', (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome</title>
+      <title>Welcome - HomeAItoB</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 2em; text-align: center; }
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          text-align: center; 
+          background-color: #f4f4f4;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+        }
         h1 { color: #333; }
+        a {
+          display: inline-block;
+          margin: 1em 0;
+          padding: 0.5em 1em;
+          background-color: #007bff;
+          color: #fff;
+          text-decoration: none;
+          border-radius: 4px;
+        }
+        a:hover {
+          background-color: #0056b3;
+        }
       </style>
     </head>
     <body>
-      <h1>Welcome to HomeAItoB</h1>
-      <p>Your document-integrated AI is ready to help!</p>
-      <a href="/start">Get Started</a>
+      <div class="container">
+        <h1>Welcome to HomeAItoB</h1>
+        <p>Your document-integrated AI is ready to help!</p>
+        <a href="/start">Get Started</a> | <a href="/about">About</a> | <a href="/purchase">Purchase</a>
+      </div>
     </body>
     </html>
   `);
 });
 
-// Start route
-app.get('/start', (req, res) => {
+// About Page Route
+app.get('/about', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Start</title>
+      <title>About - HomeAItoB</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 2em; text-align: center; }
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 800px; 
+          margin: auto;
+        }
         h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
       </style>
     </head>
     <body>
-      <h1>Help:</h1>
-      <p>To use the assistant, enter your document ID in the URL.</p>
-      <p>Example: www.homeaitob.org/start/<strong>{document-ID}</strong></p>
-      <p>Find your document ID by opening your document and copying the ID from the URL.</p>
-      <p>https://docs.google.com/document/d/<strong>{document-ID}</strong>/edit</p>
-      <p>Note: Will not work unless you are an approved user.</p>
-      <a href="/">Go Back Home</a>
+      <div class="container">
+        <h1>About HomeAItoB</h1>
+        <p>
+          Welcome to <strong>HomeAItoB</strong>, your integrated AI assistant designed to enhance your Google Docs experience. Whether you're a student, teacher, or professional, HomeAItoB helps you by automatically detecting questions in your documents and providing insightful answers.
+        </p>
+        <h2>About the Creator</h2>
+        <p>
+          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, the creator aimed to build a tool that simplifies the process of understanding and enriching written content. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity.
+        </p>
+        <h2>Features</h2>
+        <ul>
+          <li>Automatically detects and processes questions within your Google Docs.</li>
+          <li>Provides well-researched and accurate answers to your queries.</li>
+          <li>Ensures seamless integration without disrupting your document's flow.</li>
+        </ul>
+        <p>
+          Thank you for using HomeAItoB! We hope this tool enhances your document creation and study processes.
+        </p>
+        <p>
+          <a href="/">Go Back Home</a> | <a href="/purchase">Purchase</a>
+        </p>
+      </div>
     </body>
     </html>
   `);
 });
 
-// Routes
+// Purchase Page Route (Placeholder)
+app.get('/purchase', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Purchase - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+          text-align: center;
+        }
+        h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+        button {
+          padding: 0.5em 1em;
+          background-color: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 1em;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Purchase Coming Soon!</h1>
+        <p>
+          We're working hard to bring you premium features and support HomeAItoB's development. Stay tuned for updates on purchase options and exclusive benefits.
+        </p>
+        <button disabled>Purchase Options Coming Soon</button>
+        <p>
+          <a href="/">Go Back Home</a> | <a href="/about">About</a>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Existing `/start/:documentId` Route remains unchanged
 app.get('/start/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
   if (!documentId) {
@@ -296,17 +444,40 @@ app.get('/start/:documentId', async (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Processing Document</title>
+      <title>Processing Document - HomeAItoB</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 2em; text-align: center; }
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          text-align: center; 
+          background-color: #f4f4f4;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+        }
         h1 { color: #333; }
+        p { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
       </style>
     </head>
     <body>
-      <h1>Processing Document</h1>
-      <p>Document ID: ${documentId}</p>
-      <p>Processing your document. This may take a moment...</p>
-      <a href="/">Go Back Home</a>
+      <div class="container">
+        <h1>Processing Document</h1>
+        <p>Document ID: ${documentId}</p>
+        <p>Processing your document. This may take a moment...</p>
+        <a href="/">Go Back Home</a>
+      </div>
     </body>
     </html>
   `);
@@ -321,7 +492,7 @@ app.get('/start/:documentId', async (req, res) => {
     console.log(`Starting processing for document: ${documentId}`);
 
     const document = await fetchDocument(documentId);
-    const questions = await parseQuestions(document); // Await the updated parseQuestions
+    const questions = await parseQuestions(document); // Updated parseQuestions
 
     console.log(`Detected ${questions.length} question(s) in the document.`);
     console.log('Questions to process:', questions.map(q => q.text));
