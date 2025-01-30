@@ -731,7 +731,7 @@ app.get('/start', (req, res) => {
           text-align: left;
           margin-bottom: 1em;
         }
-        /* New styles for checkbox */
+        /* Existing styles for checkbox */
         .checkbox-container {
           margin-top: 1em;
           display: flex;
@@ -748,6 +748,15 @@ app.get('/start', (req, res) => {
         .checkbox-container label a:hover {
           text-decoration: underline;
         }
+        
+        /* **New Styles for Standardized Buttons** */
+        .btn-standard {
+          min-width: 150px;          /* Ensures all buttons have at least this width */
+          padding: 0.7em 1.5em;      /* Consistent padding */
+          font-size: 1em;            /* Uniform font size */
+          text-align: center;        /* Centered text */
+          transition: background-color 0.3s ease; /* Smooth hover transition */
+        }
       </style>
     </head>
     <body>
@@ -757,7 +766,7 @@ app.get('/start', (req, res) => {
           <h3>How to Find Your Document ID:</h3>
           <ol>
             <li>Open your Google Docs document.</li>
-            <li>Share your google doc document to <strong>impersonate@service-448308.iam.gserviceaccount.com</strong></li>
+            <li>Share your Google Docs document with <strong>impersonate@service-448308.iam.gserviceaccount.com</strong></li>
             <li>Look at the URL in your browser's address bar.</li>
             <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
             <li>It should look something like this: <code>1OY_nkK0sIb60qtFiY6CqMgrPviRKME9TBDyY8yR_ojc</code></li>
@@ -778,8 +787,8 @@ app.get('/start', (req, res) => {
             </label>
           </div>
           
-          <button type="submit" id="submitButton" disabled>Submit</button>
-          <a href="/" class="back-button">Back Home</a>
+          <button type="submit" id="submitButton" class="btn-standard" disabled>Submit</button>
+          <a href="/" class="btn-standard back-button">Back Home</a>
         </form>
       </div>
       
@@ -810,6 +819,7 @@ app.get('/start', (req, res) => {
     </html>
   `);
 });
+
 
 
 
