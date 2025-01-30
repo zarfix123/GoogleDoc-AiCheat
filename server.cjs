@@ -1053,225 +1053,123 @@ app.get('/terms', (req, res) => {
 // 2. Contact Page Routes
 
 // Existing Contact Page Route
-// Updated Contact Form Submission Handler without Terms and Conditions Validation
-app.post('/contact', (req, res) => {
-  const { name, email, subject, message } = req.body; // Removed 'terms' from destructuring
-
-  // Validate Required Fields
-  if (!name || !email || !subject || !message) {
-    return res.status(400).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Submission Error - HomeAItoB</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            margin: 2em; 
-            background-color: #f4f4f4;
-            color: #333;
-          }
-          .container { 
-            background-color: #fff; 
-            padding: 2em; 
-            border-radius: 8px; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-            max-width: 600px; 
-            margin: auto;
-            text-align: center;
-          }
-          h1 { color: #dc3545; }
-          a {
-            color: #007bff;
-            text-decoration: none;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Submission Failed</h1>
-          <p>All fields are required. Please fill out the form completely.</p>
-          <p><a href="/contact">Go Back to Contact Form</a></p>
-        </div>
-      </body>
-      </html>
-    `);
-  }
-
-  // Sanitize Inputs (Basic Sanitization)
-  const sanitizedName = name.replace(/[\r\n]/g, " ").trim();
-  const sanitizedEmail = email.replace(/[\r\n]/g, " ").trim();
-  const sanitizedSubject = subject.replace(/[\r\n]/g, " ").trim();
-  const sanitizedMessage = message.replace(/[\r\n]/g, " ").trim();
-
-  // Define Directory Path
-  const helpDir = path.join(__dirname, 'help', sanitizedSubject);
+app.get('/contact', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <!-- Existing head content -->
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Contact Us - HomeAItoB</title>
+      <style>
+        /* Existing styles */
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+        }
+        h1 { color: #333; }
+        form {
+          display: flex;
+          flex-direction: column;
+        }
+        label {
+          margin-top: 1em;
+          font-weight: bold;
+        }
+        input[type="text"], input[type="email"], select, textarea {
+          padding: 0.5em;
+          margin-top: 0.5em;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          width: 100%;
+        }
+        /* Removed checkbox-container styles */
+        button {
+          padding: 0.7em;
+          margin-top: 1.5em;
+          background-color: #28a745;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 1em;
+        }
+        button:hover {
+          background-color: #218838;
+        }
+        .back-link {
+          margin-top: 1em;
+          text-align: center;
+        }
+        .back-link a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        .back-link a:hover {
+          text-decoration: underline;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Contact Us</h1>
+        <form id="contactForm" action="/contact" method="POST">
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="name" required />
   
-  // Create Directory if it doesn't exist
-  if (!fs.existsSync(helpDir)) {
-    fs.mkdirSync(helpDir, { recursive: true });
-  }
-
-  // Define File Path with Timestamp
-  const timestamp = Date.now();
-  const filePath = path.join(helpDir, `${timestamp}.txt`);
-
-  // Define Message Content
-  const content = `
-Name: ${sanitizedName}
-Email: ${sanitizedEmail}
-Subject: ${sanitizedSubject}
-Message:
-${sanitizedMessage}
-Timestamp: ${new Date(timestamp).toISOString()}
-  `.trim();
-
-  // Write Message to File
-  fs.writeFile(filePath, content, (err) => {
-    if (err) {
-      console.error('Error saving contact message:', err);
-      return res.status(500).send(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <title>Submission Error - HomeAItoB</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 2em; 
-              background-color: #f4f4f4;
-              color: #333;
-            }
-            .container { 
-              background-color: #fff; 
-              padding: 2em; 
-              border-radius: 8px; 
-              box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-              max-width: 600px; 
-              margin: auto;
-              text-align: center;
-            }
-            h1 { color: #dc3545; }
-            a {
-              color: #007bff;
-              text-decoration: none;
-            }
-            a:hover {
-              text-decoration: underline;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Submission Failed</h1>
-            <p>There was an error processing your request. Please try again later.</p>
-            <p><a href="/contact">Go Back to Contact Form</a></p>
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required />
+  
+          <label for="subject">Subject:</label>
+          <select id="subject" name="subject" required>
+            <option value="">--Please choose an option--</option>
+            <option value="Technical Support">Technical Support</option>
+            <option value="Billing">Billing</option>
+            <option value="General Inquiry">General Inquiry</option>
+            <option value="Feedback">Feedback</option>
+            <option value="Other">Other</option>
+          </select>
+  
+          <label for="message">Reason for Inquiry / Support Needed:</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+  
+          <!-- **Removed Terms and Conditions Checkbox Below** -->
+          <!--
+          <div class="checkbox-container">
+            <input type="checkbox" id="terms" name="terms" required />
+            <label for="terms">
+              I agree to the <a href="/terms" target="_blank">Terms and Conditions</a>.
+            </label>
           </div>
-        </body>
-        </html>
-      `);
-    }
-
-    // Success Response
-    res.send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Submission Successful - HomeAItoB</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            margin: 2em; 
-            background-color: #f4f4f4;
-            color: #333;
-          }
-          .container { 
-            background-color: #fff; 
-            padding: 2em; 
-            border-radius: 8px; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-            max-width: 600px; 
-            margin: auto;
-            text-align: center;
-          }
-          h1 { color: #28a745; }
-          a {
-            color: #007bff;
-            text-decoration: none;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Thank You!</h1>
-          <p>Your message has been successfully submitted. We will get back to you shortly.</p>
-          <p><a href="/">Go Back Home</a></p>
+          -->
+  
+          <button type="submit">Submit</button>
+        </form>
+        <div class="back-link">
+          <a href="/">Go Back Home</a>
         </div>
-      </body>
-      </html>
-    `);
-  });
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 
-
 // Handle Contact Form Submission
+// Updated Contact Form Submission Handler without Terms and Conditions Validation
 app.post('/contact', (req, res) => {
-  const { name, email, subject, message, terms } = req.body;
-
-  // Validate Terms and Conditions Agreement
-  if (!terms) {
-    return res.status(400).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Submission Error - HomeAItoB</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            margin: 2em; 
-            background-color: #f4f4f4;
-            color: #333;
-          }
-          .container { 
-            background-color: #fff; 
-            padding: 2em; 
-            border-radius: 8px; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-            max-width: 600px; 
-            margin: auto;
-            text-align: center;
-          }
-          h1 { color: #dc3545; }
-          a {
-            color: #007bff;
-            text-decoration: none;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Submission Failed</h1>
-          <p>You must agree to the <a href="/terms" target="_blank">Terms and Conditions</a> to submit the form.</p>
-          <p><a href="/contact">Go Back to Contact Form</a></p>
-        </div>
-      </body>
-      </html>
-    `);
-  }
+  const { name, email, subject, message } = req.body; // Removed 'terms' from destructuring
 
   // Validate Required Fields
   if (!name || !email || !subject || !message) {
