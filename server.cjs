@@ -934,6 +934,394 @@ app.get('/start/:documentId', (req, res) => {
     </html>
   `);
 });
+// 1. Terms and Conditions Route
+app.get('/terms', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Terms and Conditions - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 800px; 
+          margin: auto;
+        }
+        h1 { color: #333; }
+        ul { line-height: 1.6; }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Terms and Conditions</h1>
+        <p>Welcome to HomeAItoB. By accessing and using our services, you agree to comply with and be bound by the following terms and conditions:</p>
+        <ul>
+          <li><strong>No Disclosure of the Software:</strong> Users are prohibited from disclosing, distributing, or reproducing any part of the HomeAItoB software without explicit permission from the owner.</li>
+          <li><strong>No Disclosure of the Owner/Creator:</strong> Users must not attempt to identify, disclose, or reveal any information about the owner or creator of HomeAItoB.</li>
+          <li><strong>No Liability for Cheating:</strong> HomeAItoB is not responsible for any misuse of its services, including but not limited to academic dishonesty or cheating.</li>
+          <li><strong>No Liability for Incorrect Answers:</strong> While HomeAItoB strives to provide accurate and helpful information, it does not guarantee the correctness of the answers provided and is not liable for any errors or omissions.</li>
+          <li><strong>No Minimum Grade Agreement:</strong> HomeAItoB does not warrant or guarantee any specific academic outcomes, including grades or performance.</li>
+          <li><strong>No Refunds:</strong> All payments made for HomeAItoB services are non-refundable, regardless of user satisfaction or usage.</li>
+          <li><strong>Termination of Access:</strong> HomeAItoB reserves the right to terminate or restrict access to its services at its sole discretion, without prior notice.</li>
+          <li><strong>Modification of Terms:</strong> HomeAItoB may modify these terms and conditions at any time. Continued use of the services constitutes acceptance of the updated terms.</li>
+          <li><strong>Governing Law:</strong> These terms and conditions are governed by and construed in accordance with the laws of the jurisdiction in which HomeAItoB operates.</li>
+        </ul>
+        <p>For any questions or concerns regarding these terms, please contact us through our <a href="/contact">Contact Page</a>.</p>
+        <p><a href="/">Go Back Home</a></p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// 2. Contact Page Routes
+
+// Serve the Contact Form
+app.get('/contact', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Contact Us - HomeAItoB</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 2em; 
+          background-color: #f4f4f4;
+          color: #333;
+        }
+        .container { 
+          background-color: #fff; 
+          padding: 2em; 
+          border-radius: 8px; 
+          box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+          max-width: 600px; 
+          margin: auto;
+        }
+        h1 { color: #333; }
+        form {
+          display: flex;
+          flex-direction: column;
+        }
+        label {
+          margin-top: 1em;
+          font-weight: bold;
+        }
+        input[type="text"], input[type="email"], select, textarea {
+          padding: 0.5em;
+          margin-top: 0.5em;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          width: 100%;
+        }
+        .checkbox-container {
+          margin-top: 1em;
+          display: flex;
+          align-items: center;
+        }
+        .checkbox-container input {
+          margin-right: 0.5em;
+        }
+        button {
+          padding: 0.7em;
+          margin-top: 1.5em;
+          background-color: #28a745;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 1em;
+        }
+        button:hover {
+          background-color: #218838;
+        }
+        .back-link {
+          margin-top: 1em;
+          text-align: center;
+        }
+        .back-link a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        .back-link a:hover {
+          text-decoration: underline;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Contact Us</h1>
+        <form id="contactForm" action="/contact" method="POST">
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="name" required />
+
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required />
+
+          <label for="subject">Subject:</label>
+          <select id="subject" name="subject" required>
+            <option value="">--Please choose an option--</option>
+            <option value="Technical">Technical</option>
+            <option value="Billing">Billing</option>
+            <option value="General">General</option>
+            <option value="Feedback">Feedback</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <label for="message">Reason for Inquiry / Support Needed:</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+
+          <div class="checkbox-container">
+            <input type="checkbox" id="terms" name="terms" required />
+            <label for="terms">
+              I agree to the <a href="/terms" target="_blank">Terms and Conditions</a>.
+            </label>
+          </div>
+
+          <button type="submit">Submit</button>
+        </form>
+        <div class="back-link">
+          <a href="/">Go Back Home</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Handle Contact Form Submission
+app.post('/contact', (req, res) => {
+  const { name, email, subject, message, terms } = req.body;
+
+  // Validate Terms and Conditions Agreement
+  if (!terms) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Submission Error - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2em; 
+            background-color: #f4f4f4;
+            color: #333;
+          }
+          .container { 
+            background-color: #fff; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            max-width: 600px; 
+            margin: auto;
+            text-align: center;
+          }
+          h1 { color: #dc3545; }
+          a {
+            color: #007bff;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Submission Failed</h1>
+          <p>You must agree to the <a href="/terms" target="_blank">Terms and Conditions</a> to submit the form.</p>
+          <p><a href="/contact">Go Back to Contact Form</a></p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+
+  // Validate Required Fields
+  if (!name || !email || !subject || !message) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Submission Error - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2em; 
+            background-color: #f4f4f4;
+            color: #333;
+          }
+          .container { 
+            background-color: #fff; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            max-width: 600px; 
+            margin: auto;
+            text-align: center;
+          }
+          h1 { color: #dc3545; }
+          a {
+            color: #007bff;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Submission Failed</h1>
+          <p>All fields are required. Please fill out the form completely.</p>
+          <p><a href="/contact">Go Back to Contact Form</a></p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+
+  // Sanitize Inputs (Basic Sanitization)
+  const sanitizedName = name.replace(/[\r\n]/g, " ").trim();
+  const sanitizedEmail = email.replace(/[\r\n]/g, " ").trim();
+  const sanitizedSubject = subject.replace(/[\r\n]/g, " ").trim();
+  const sanitizedMessage = message.replace(/[\r\n]/g, " ").trim();
+
+  // Define Directory Path
+  const helpDir = path.join(__dirname, 'help', sanitizedSubject);
+  
+  // Create Directory if it doesn't exist
+  if (!fs.existsSync(helpDir)) {
+    fs.mkdirSync(helpDir, { recursive: true });
+  }
+
+  // Define File Path with Timestamp
+  const timestamp = Date.now();
+  const filePath = path.join(helpDir, `${timestamp}.txt`);
+
+  // Define Message Content
+  const content = `
+Name: ${sanitizedName}
+Email: ${sanitizedEmail}
+Subject: ${sanitizedSubject}
+Message:
+${sanitizedMessage}
+Timestamp: ${new Date(timestamp).toISOString()}
+  `.trim();
+
+  // Write Message to File
+  fs.writeFile(filePath, content, (err) => {
+    if (err) {
+      console.error('Error saving contact message:', err);
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Submission Error - HomeAItoB</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 2em; 
+              background-color: #f4f4f4;
+              color: #333;
+            }
+            .container { 
+              background-color: #fff; 
+              padding: 2em; 
+              border-radius: 8px; 
+              box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+              max-width: 600px; 
+              margin: auto;
+              text-align: center;
+            }
+            h1 { color: #dc3545; }
+            a {
+              color: #007bff;
+              text-decoration: none;
+            }
+            a:hover {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Submission Failed</h1>
+            <p>There was an error processing your request. Please try again later.</p>
+            <p><a href="/contact">Go Back to Contact Form</a></p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Success Response
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Submission Successful - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2em; 
+            background-color: #f4f4f4;
+            color: #333;
+          }
+          .container { 
+            background-color: #fff; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            max-width: 600px; 
+            margin: auto;
+            text-align: center;
+          }
+          h1 { color: #28a745; }
+          a {
+            color: #007bff;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Thank You!</h1>
+          <p>Your message has been successfully submitted. We will get back to you shortly.</p>
+          <p><a href="/">Go Back Home</a></p>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+});
 
 
 /**
