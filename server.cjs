@@ -655,7 +655,7 @@ app.get('/about', (req, res) => {
         </p>
           <h2>About the Creator</h2>
         <p>
-          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, our creator aimed to build a tool that simplifies the process of understanding and completing written content assignments. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity. All proceeds and profits from HomeAItoB will be directly to given to the creator to support their future endeavors in making tools like this.
+          HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, our creator aimed to build a tool that simplifies the process of understanding and completing written content assignments. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity. All proceeds and profits from HomeAItoB will be directly given to the creator to support their future endeavors in making tools like this. If you have any ideas for tools that could be useful just like this, please reach out to the creator at our Contact Us page.
         </p>
         <h2>Features</h2>
         <ul>
