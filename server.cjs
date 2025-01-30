@@ -490,15 +490,18 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
 /**
  * Home Page Route
  */
+// Existing Home Page Route
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
+      <!-- Existing head content -->
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Welcome - HomeAItoB</title>
       <style>
+        /* Existing styles */
         body { 
           font-family: Arial, sans-serif; 
           margin: 2em; 
@@ -533,11 +536,15 @@ app.get('/', (req, res) => {
         <h1>Welcome to HomeAItoB</h1>
         <p>Your document-integrated AI is ready to help!</p>
         <a href="/start">Get Started</a> | <a href="/about">About</a> | <a href="/purchase">Purchase</a>
+        
+        <!-- **New "Contact Us" Button Added Below** -->
+        <a href="/contact">Contact Us</a>
       </div>
     </body>
     </html>
   `);
 });
+
 // Purchase Page Route (Placeholder)
 app.get('/purchase', (req, res) => {
   res.send(`
@@ -666,15 +673,18 @@ app.get('/about', (req, res) => {
 });
 
 
+// Existing Start Page Route
 app.get('/start', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
+      <!-- Existing head content -->
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Start - HomeAItoB</title>
       <style>
+        /* Existing styles */
         body { 
           font-family: Arial, sans-serif; 
           margin: 2em; 
@@ -708,12 +718,36 @@ app.get('/start', (req, res) => {
           text-decoration: none;
           display: inline-block;
         }
-        button:hover, .back-button:hover {
+        button:disabled {
+          background-color: #6c757d;
+          cursor: not-allowed;
+        }
+        button:hover:enabled {
+          background-color: #218838;
+        }
+        .back-button:hover {
           background-color: #218838;
         }
         .directions {
           text-align: left;
           margin-bottom: 1em;
+        }
+        /* New styles for checkbox */
+        .checkbox-container {
+          margin-top: 1em;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .checkbox-container input {
+          margin-right: 0.5em;
+        }
+        .checkbox-container label a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        .checkbox-container label a:hover {
+          text-decoration: underline;
         }
       </style>
     </head>
@@ -725,12 +759,9 @@ app.get('/start', (req, res) => {
           <ol>
             <li>Open your Google Docs document.</li>
             <li>Share your google doc document to <strong>impersonate@service-448308.iam.gserviceaccount.com</strong></li>
-
             <li>Look at the URL in your browser's address bar.</li>
             <li>Copy the part between <strong>/d/</strong> and <strong>/edit</strong>.</li>
-
             <li>It should look something like this: <code>1OY_nkK0sIb60qtFiY6CqMgrPviRKME9TBDyY8yR_ojc</code></li>
-
             <li>(Optional) Enter any extra context (like documents) to help the AI understand the context.</li>
           </ol>
         </div>
@@ -739,7 +770,16 @@ app.get('/start', (req, res) => {
           <br/>
           <textarea id="extraContext" name="extraContext" placeholder="Enter extra context (optional)" rows="5"></textarea>
           <br/>
-          <button type="submit">Submit</button>
+          
+          <!-- **Added Terms and Conditions Checkbox Below** -->
+          <div class="checkbox-container">
+            <input type="checkbox" id="terms" name="terms" />
+            <label for="terms">
+              I agree to the <a href="/terms" target="_blank">Terms and Conditions</a>.
+            </label>
+          </div>
+          
+          <button type="submit" id="submitButton" disabled>Submit</button>
           <a href="/" class="back-button">Back Home</a>
         </form>
       </div>
@@ -749,28 +789,41 @@ app.get('/start', (req, res) => {
           event.preventDefault(); // Prevent the default form submission
           const docId = document.getElementById('documentId').value.trim();
           const extraContext = document.getElementById('extraContext').value.trim();
+          const termsChecked = document.getElementById('terms').checked; // Get the state of the checkbox
           if(docId) {
             // Encode the extra context to safely include it in the URL
             const encodedContext = encodeURIComponent(extraContext);
-            // Redirect to /start/:documentId with extra context as a query parameter
-            window.location.href = '/start/' + docId + '?extraContext=' + encodedContext;
+            // Redirect to /start/:documentId with extra context and terms as query parameters
+            window.location.href = '/start/' + docId + '?extraContext=' + encodedContext + '&terms=' + termsChecked;
           }
         });
+
+        // JavaScript to handle enabling/disabling the submit button
+        const termsCheckbox = document.getElementById('terms');
+        const submitButton = document.getElementById('submitButton');
+        
+        termsCheckbox.addEventListener('change', function() {
+          submitButton.disabled = !this.checked;
+        });
       </script>
+
     </body>
     </html>
   `);
 });
 
 
+
 /**
  * `/start/:documentId` Route - Serves the Processing Page with Real-Time Feedback
  */
 // Updated `/start/:documentId` route to handle extra context
+// Existing /start/:documentId Route
 app.get('/start/:documentId', (req, res) => {
   const documentId = req.params.documentId;
   const extraContext = req.query.extraContext || ''; // Retrieve extra context from query parameters
-  
+  const termsAgreed = req.query.terms === 'true'; // Retrieve terms agreement
+
   if (!documentId) {
     return res.status(400).send(`
       <!DOCTYPE html>
@@ -784,6 +837,7 @@ app.get('/start/:documentId', (req, res) => {
     <!DOCTYPE html>
     <html lang="en">
     <head>
+      <!-- Existing head content -->
       <meta charset="UTF-8">
       <title>Processing Document - HomeAItoB</title>
       <style>
@@ -892,13 +946,18 @@ app.get('/start/:documentId', (req, res) => {
           try {
             const params = getQueryParams();
             const extraContext = params.extraContext || '';
+            const termsAgreed = params.terms === 'true'; // Extract terms agreement
+
+            if (!termsAgreed) {
+              throw new Error('You must agree to the Terms and Conditions to use this service.');
+            }
 
             const response = await fetch('/api/process/' + '${documentId}', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ extraContext }) // Send extra context in the request body
+              body: JSON.stringify({ extraContext, terms: termsAgreed }) // Send extra context and terms agreement
             });
 
             // Add logging to inspect the response
@@ -923,7 +982,7 @@ app.get('/start/:documentId', (req, res) => {
           } catch (error) {
             console.error('Fetch Error:', error);
             removeProcessingElements();
-            displayMessage('error', 'An unexpected error occurred. Please try again later.');
+            displayMessage('error', error.message || 'An unexpected error occurred. Please try again later.');
           }
         }
 
@@ -934,6 +993,7 @@ app.get('/start/:documentId', (req, res) => {
     </html>
   `);
 });
+
 // 1. Terms and Conditions Route
 app.get('/terms', (req, res) => {
   res.send(`
@@ -994,16 +1054,18 @@ app.get('/terms', (req, res) => {
 
 // 2. Contact Page Routes
 
-// Serve the Contact Form
+// Existing Contact Page Route
 app.get('/contact', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
+      <!-- Existing head content -->
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Contact Us - HomeAItoB</title>
       <style>
+        /* Existing styles */
         body { 
           font-family: Arial, sans-serif; 
           margin: 2em; 
@@ -1034,14 +1096,7 @@ app.get('/contact', (req, res) => {
           border-radius: 4px;
           width: 100%;
         }
-        .checkbox-container {
-          margin-top: 1em;
-          display: flex;
-          align-items: center;
-        }
-        .checkbox-container input {
-          margin-right: 0.5em;
-        }
+        /* Removed checkbox-container styles */
         button {
           padding: 0.7em;
           margin-top: 1.5em;
@@ -1074,30 +1129,33 @@ app.get('/contact', (req, res) => {
         <form id="contactForm" action="/contact" method="POST">
           <label for="name">Name:</label>
           <input type="text" id="name" name="name" required />
-
+  
           <label for="email">Email:</label>
           <input type="email" id="email" name="email" required />
-
+  
           <label for="subject">Subject:</label>
           <select id="subject" name="subject" required>
             <option value="">--Please choose an option--</option>
-            <option value="Technical">Technical</option>
+            <option value="Technical Support">Technical Support</option>
             <option value="Billing">Billing</option>
-            <option value="General">General</option>
+            <option value="General Inquiry">General Inquiry</option>
             <option value="Feedback">Feedback</option>
             <option value="Other">Other</option>
           </select>
-
+  
           <label for="message">Reason for Inquiry / Support Needed:</label>
           <textarea id="message" name="message" rows="5" required></textarea>
-
+  
+          <!-- **Removed Terms and Conditions Checkbox Below** -->
+          <!--
           <div class="checkbox-container">
             <input type="checkbox" id="terms" name="terms" required />
             <label for="terms">
               I agree to the <a href="/terms" target="_blank">Terms and Conditions</a>.
             </label>
           </div>
-
+          -->
+  
           <button type="submit">Submit</button>
         </form>
         <div class="back-link">
@@ -1108,6 +1166,7 @@ app.get('/contact', (req, res) => {
     </html>
   `);
 });
+
 
 // Handle Contact Form Submission
 app.post('/contact', (req, res) => {
@@ -1328,12 +1387,18 @@ Timestamp: ${new Date(timestamp).toISOString()}
  * API Endpoint to Process the Document
  */
 // Updated `/api/process/:documentId` route to handle extra context
+// Existing API Endpoint to Process the Document
 app.post('/api/process/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
-  const { extraContext } = req.body; // Destructure extraContext from the request body
+  const { extraContext, terms } = req.body; // Include 'terms' in the request body
   
   if (!documentId) {
     return res.status(400).json({ error: 'Missing Document ID.' });
+  }
+
+  // **Verify Terms and Conditions Agreement**
+  if (!terms) {
+    return res.status(400).json({ error: 'You must agree to the Terms and Conditions to use this service.' });
   }
 
   try {
@@ -1398,6 +1463,7 @@ app.post('/api/process/:documentId', async (req, res) => {
     return res.status(500).json({ error: 'An error occurred while processing your document. Please try again later.' });
   }
 });
+
 
 /**
  * Start the Server
