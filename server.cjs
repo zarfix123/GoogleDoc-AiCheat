@@ -202,24 +202,51 @@ function normalizeText(text) {
  */
 function isQuestionAnswered(content, questionEndIndex) {
   // Find the element with the given endIndex
-  const index = content.findIndex(element => element.endIndex === questionEndIndex);
-  if (index === -1) {
+  const questionElement = content.find(element => element.endIndex === questionEndIndex);
+  if (!questionElement) {
     return false; // Can't find the question element, assume not answered
   }
-  
-  // Check the next element for an answer
-  const nextElement = content[index + 1];
-  if (nextElement && nextElement.paragraph) {
-    const paraText = nextElement.paragraph.elements
-      .filter(el => el.textRun && el.textRun.content)
-      .map(el => el.textRun.content)
-      .join('')
-      .trim();
-    return paraText.startsWith('Answer:');
+
+  // Determine if the question is within a paragraph or a table cell
+  if (questionElement.paragraph) {
+    // If it's a paragraph, check the next element in the content array
+    const index = content.indexOf(questionElement);
+    const nextElement = content[index + 1];
+    if (nextElement && nextElement.paragraph) {
+      const paraText = nextElement.paragraph.elements
+        .filter(el => el.textRun && el.textRun.content)
+        .map(el => el.textRun.content)
+        .join('')
+        .trim();
+      return paraText.startsWith('Answer:');
+    }
+  } else if (questionElement.table) {
+    // If it's within a table, find the specific cell and check the next paragraph within that cell
+    questionElement.table.tableRows.forEach(row => {
+      row.tableCells.forEach(cell => {
+        cell.content.forEach(element => {
+          if (element.paragraph && element.endIndex === questionEndIndex) {
+            // Find the paragraph within the cell
+            const paragraphs = cell.content.filter(el => el.paragraph);
+            const paraIndex = paragraphs.findIndex(el => el.endIndex === questionEndIndex);
+            const nextPara = paragraphs[paraIndex + 1];
+            if (nextPara && nextPara.paragraph) {
+              const paraText = nextPara.paragraph.elements
+                .filter(el => el.textRun && el.textRun.content)
+                .map(el => el.textRun.content)
+                .join('')
+                .trim();
+              return paraText.startsWith('Answer:');
+            }
+          }
+        });
+      });
+    });
   }
-  
+
   return false;
 }
+
 
 /**
  * Parse questions from the document using OpenAI's detection.
@@ -228,6 +255,11 @@ function isQuestionAnswered(content, questionEndIndex) {
   */
 
 
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
@@ -244,10 +276,10 @@ async function parseQuestions(document) {
       .map(el => el.textRun.content)
       .join('')
       .trim();
-    
+
     // Split paragraph into lines based on manual line breaks
     const splitLines = paraText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 0);
-    
+
     splitLines.forEach(line => {
       lines.push({ text: line, endIndex: paragraph.endIndex });
     });
@@ -310,6 +342,15 @@ async function parseQuestions(document) {
     if (matchedLine) {
       const { text, endIndex } = matchedLine;
 
+      // Validate endIndex
+      if (typeof endIndex !== 'number' || isNaN(endIndex)) {
+        console.warn(`Invalid endIndex for question "${question}". endIndex: ${endIndex}`);
+        continue; // Skip this question
+      }
+
+      // Log the matched question and endIndex
+      console.log(`Matched Question: "${question}" at endIndex ${endIndex}`);
+
       // Check if this question has already been answered
       const alreadyAnswered = isQuestionAnswered(content, endIndex);
       if (alreadyAnswered) {
@@ -321,7 +362,6 @@ async function parseQuestions(document) {
         text: question, // Use the original question text
         endIndex: endIndex, // Use the associated endIndex
       });
-      console.log(`Matched Question: "${question}" at endIndex ${endIndex}`);
       isMatched = true;
     }
 
@@ -347,6 +387,15 @@ async function parseQuestions(document) {
       if (highestSimilarity >= similarityThreshold && bestMatchLine) {
         const { text, endIndex } = bestMatchLine;
 
+        // Validate endIndex
+        if (typeof endIndex !== 'number' || isNaN(endIndex)) {
+          console.warn(`Invalid endIndex for question "${question}" via similarity. endIndex: ${endIndex}`);
+          continue; // Skip this question
+        }
+
+        // Log the matched question via similarity
+        console.log(`Matched Question via Similarity: "${question}" with similarity ${highestSimilarity.toFixed(2)} at endIndex ${endIndex}`);
+
         // Check if this question has already been answered
         const alreadyAnswered = isQuestionAnswered(content, endIndex);
         if (alreadyAnswered) {
@@ -358,7 +407,6 @@ async function parseQuestions(document) {
           text: question, // Use the original question text
           endIndex: endIndex, // Use the associated endIndex
         });
-        console.log(`Matched Question via Similarity: "${question}" with similarity ${highestSimilarity.toFixed(2)} at endIndex ${endIndex}`);
         isMatched = true;
       }
 
@@ -372,6 +420,7 @@ async function parseQuestions(document) {
 
   return questions;
 }
+
 
 
 /**
@@ -459,7 +508,20 @@ async function generateAnswer(questionText, extraContext) {
  * @param {string} answerText - The answer text to insert.
  * @returns {Promise<number>} - Returns the number of characters inserted.
  */
+/**
+ * Simulate typing and insert text into the Google Docs document in chunks.
+ * @param {string} docId - The Google Docs Document ID.
+ * @param {number} insertIndex - The index where text should be inserted.
+ * @param {string} answerText - The answer text to insert.
+ * @returns {Promise<number>} - Returns the number of characters inserted.
+ */
 async function simulateTypingAndInsert(docId, insertIndex, answerText) {
+  // Validate insertIndex
+  if (typeof insertIndex !== 'number' || isNaN(insertIndex)) {
+    console.error(`Invalid insertIndex: ${insertIndex}. Skipping insertion.`);
+    return 0; // Return early since insertion cannot proceed
+  }
+
   const words = answerText.split(' ');
   const chunkSize = 5; // Number of words per batch
   const wordsPerMinute = 100 + Math.random() * 20; // Faster typing
@@ -469,7 +531,6 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   for (let i = 0; i < words.length; i += chunkSize) {
     let chunk = words.slice(i, i + chunkSize).join(' ') + ' ';
     
-    // Check if the current insertion is at the end of a paragraph
     try {
       // Attempt to insert text at the specified index
       const requests = [
@@ -1381,6 +1442,9 @@ Timestamp: ${new Date(timestamp).toISOString()}
  */
 // Updated `/api/process/:documentId` route to handle extra context
 // Existing API Endpoint to Process the Document
+/**
+ * API Endpoint to Process the Document
+ */
 app.post('/api/process/:documentId', async (req, res) => {
   const documentId = req.params.documentId;
   const { extraContext, terms } = req.body; // Include 'terms' in the request body
@@ -1456,6 +1520,7 @@ app.post('/api/process/:documentId', async (req, res) => {
     return res.status(500).json({ error: 'An error occurred while processing your document. Please try again later.' });
   }
 });
+
 
 
 /**
