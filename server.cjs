@@ -1134,25 +1134,15 @@ app.get('/contact', (req, res) => {
           <label for="subject">Subject:</label>
           <select id="subject" name="subject" required>
             <option value="">--Please choose an option--</option>
-            <option value="Technical Support">Technical Support</option>
+            <option value="Technical">Technical</option>
             <option value="Billing">Billing</option>
-            <option value="General Inquiry">General Inquiry</option>
+            <option value="General">General</option>
             <option value="Feedback">Feedback</option>
             <option value="Other">Other</option>
           </select>
   
           <label for="message">Reason for Inquiry / Support Needed:</label>
           <textarea id="message" name="message" rows="5" required></textarea>
-  
-          <!-- **Removed Terms and Conditions Checkbox Below** -->
-          <!--
-          <div class="checkbox-container">
-            <input type="checkbox" id="terms" name="terms" required />
-            <label for="terms">
-              I agree to the <a href="/terms" target="_blank">Terms and Conditions</a>.
-            </label>
-          </div>
-          -->
   
           <button type="submit">Submit</button>
         </form>
@@ -1171,6 +1161,7 @@ app.get('/contact', (req, res) => {
 // Existing Contact Form Submission Handler
 app.post('/contact', (req, res) => {
   const { name, email, subject, message } = req.body; // Removed 'terms' from destructuring
+  console.log(name, email, subject, message);
 
   // Validate Required Fields
   if (!name || !email || !subject || !message) {
