@@ -1168,6 +1168,7 @@ app.get('/contact', (req, res) => {
 
 // Handle Contact Form Submission
 // Updated Contact Form Submission Handler without Terms and Conditions Validation
+// Existing Contact Form Submission Handler
 app.post('/contact', (req, res) => {
   const { name, email, subject, message } = req.body; // Removed 'terms' from destructuring
 
