@@ -225,31 +225,38 @@ function isQuestionAnswered(content, questionEndIndex) {
  * Parse questions from the document using OpenAI's detection.
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
- */
-/**
- * Parse questions from the document using OpenAI's detection.
- * @param {object} document - The Google Docs document object.
- * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
- */
+  */
+
+
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
   // Initialize an array to hold all lines extracted from paragraphs and tables
   const lines = [];
 
-  // Function to extract text from a paragraph element
+  /**
+   * Extract text from a paragraph element and associate each line with its endIndex.
+   * @param {object} paragraph - The paragraph element from Google Docs.
+   */
   const extractParagraphText = (paragraph) => {
     const paraText = paragraph.elements
       .filter(el => el.textRun && el.textRun.content)
       .map(el => el.textRun.content)
       .join('')
       .trim();
-    // Split paragraph into lines based on manual line breaks or multiple spaces
+    
+    // Split paragraph into lines based on manual line breaks
     const splitLines = paraText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 0);
-    lines.push(...splitLines);
+    
+    splitLines.forEach(line => {
+      lines.push({ text: line, endIndex: paragraph.endIndex });
+    });
   };
 
-  // Function to extract text from a table element
+  /**
+   * Extract text from a table element, traversing each cell and its paragraphs.
+   * @param {object} table - The table element from Google Docs.
+   */
   const extractTableText = (table) => {
     table.tableRows.forEach(row => {
       row.tableCells.forEach(cell => {
@@ -258,7 +265,7 @@ async function parseQuestions(document) {
           if (element.paragraph) {
             extractParagraphText(element.paragraph);
           }
-          // If tables are nested within cells, recursively extract text
+          // Handle nested tables if present
           if (element.table) {
             extractTableText(element.table);
           }
@@ -277,10 +284,10 @@ async function parseQuestions(document) {
     // Handle other element types if necessary (e.g., lists, images)
   });
 
-  console.log('Document Lines:', lines);
+  console.log('Document Lines:', lines.map(line => line.text));
 
   // Detect questions using OpenAI
-  const detectedQuestions = await detectQuestions(lines.join('\n'));
+  const detectedQuestions = await detectQuestions(lines.map(line => line.text).join('\n'));
 
   console.log('Detected Questions from OpenAI:', detectedQuestions);
 
@@ -296,65 +303,26 @@ async function parseQuestions(document) {
     const question = detectedQuestions[index];
     const normalizedQuestion = normalizedDetectedQuestions[index];
     let isMatched = false;
-    let matchedEndIndex = null;
 
-    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-      const line = lines[lineIndex];
-      const normalizedLine = normalizeText(line);
+    // Find the line that contains the question
+    const matchedLine = lines.find(line => normalizeText(line.text).includes(normalizedQuestion));
 
-      // Check if the normalized question is a substring of the normalized line
-      if (normalizedLine.includes(normalizedQuestion)) {
-        // Retrieve the corresponding element to get the endIndex
-        const matchedElement = content.find(element => {
-          if (element.paragraph) {
-            const paraText = element.paragraph.elements
-              .filter(el => el.textRun && el.textRun.content)
-              .map(el => el.textRun.content)
-              .join('')
-              .trim();
-            return normalizeText(paraText).includes(normalizedQuestion);
-          } else if (element.table) {
-            // Search within table cells
-            let found = false;
-            element.table.tableRows.forEach(row => {
-              row.tableCells.forEach(cell => {
-                cell.content.forEach(cellElement => {
-                  if (cellElement.paragraph) {
-                    const paraText = cellElement.paragraph.elements
-                      .filter(el => el.textRun && el.textRun.content)
-                      .map(el => el.textRun.content)
-                      .join('')
-                      .trim();
-                    if (normalizeText(paraText).includes(normalizedQuestion)) {
-                      found = true;
-                    }
-                  }
-                });
-              });
-            });
-            return found;
-          }
-          return false;
-        });
+    if (matchedLine) {
+      const { text, endIndex } = matchedLine;
 
-        if (matchedElement && matchedElement.endIndex) {
-          // Check if this question has already been answered
-          const alreadyAnswered = isQuestionAnswered(content, matchedElement.endIndex);
-          if (alreadyAnswered) {
-            console.log(`Question "${question}" is already answered. Skipping.`);
-            isMatched = true;
-            break; // Skip to the next question
-          }
-
-          questions.push({
-            text: question, // Use the original question text
-            endIndex: matchedElement.endIndex,
-          });
-          console.log(`Matched Question: "${question}" at endIndex ${matchedElement.endIndex}`);
-          isMatched = true;
-          break; // Move to the next detected question
-        }
+      // Check if this question has already been answered
+      const alreadyAnswered = isQuestionAnswered(content, endIndex);
+      if (alreadyAnswered) {
+        console.log(`Question "${question}" is already answered. Skipping.`);
+        continue; // Skip to the next question
       }
+
+      questions.push({
+        text: question, // Use the original question text
+        endIndex: endIndex, // Use the associated endIndex
+      });
+      console.log(`Matched Question: "${question}" at endIndex ${endIndex}`);
+      isMatched = true;
     }
 
     // If not matched via substring, optionally use similarity score as a fallback
@@ -364,7 +332,7 @@ async function parseQuestions(document) {
       let bestMatchLine = null;
 
       lines.forEach((line, lineIndex) => {
-        const normalizedLine = normalizeText(line);
+        const normalizedLine = normalizeText(line.text);
         const distance = getLevenshteinDistance(normalizedQuestion, normalizedLine);
         const maxLength = Math.max(normalizedQuestion.length, normalizedLine.length);
         const similarity = 1 - distance / maxLength;
@@ -377,54 +345,21 @@ async function parseQuestions(document) {
 
       // Check if the highest similarity exceeds the threshold
       if (highestSimilarity >= similarityThreshold && bestMatchLine) {
-        // Retrieve the corresponding element to get the endIndex
-        const matchedElement = content.find(element => {
-          if (element.paragraph) {
-            const paraText = element.paragraph.elements
-              .filter(el => el.textRun && el.textRun.content)
-              .map(el => el.textRun.content)
-              .join('')
-              .trim();
-            return normalizeText(paraText) === normalizeText(bestMatchLine);
-          } else if (element.table) {
-            // Search within table cells
-            let found = false;
-            element.table.tableRows.forEach(row => {
-              row.tableCells.forEach(cell => {
-                cell.content.forEach(cellElement => {
-                  if (cellElement.paragraph) {
-                    const paraText = cellElement.paragraph.elements
-                      .filter(el => el.textRun && el.textRun.content)
-                      .map(el => el.textRun.content)
-                      .join('')
-                      .trim();
-                    if (normalizeText(paraText) === normalizeText(bestMatchLine)) {
-                      found = true;
-                    }
-                  }
-                });
-              });
-            });
-            return found;
-          }
-          return false;
-        });
+        const { text, endIndex } = bestMatchLine;
 
-        if (matchedElement && matchedElement.endIndex) {
-          // Check if this question has already been answered
-          const alreadyAnswered = isQuestionAnswered(content, matchedElement.endIndex);
-          if (alreadyAnswered) {
-            console.log(`Question "${question}" is already answered via similarity. Skipping.`);
-            continue; // Skip to the next question
-          }
-
-          questions.push({
-            text: question, // Use the original question text
-            endIndex: matchedElement.endIndex,
-          });
-          console.log(`Matched Question via Similarity: "${question}" with similarity ${highestSimilarity.toFixed(2)} at endIndex ${matchedElement.endIndex}`);
-          isMatched = true;
+        // Check if this question has already been answered
+        const alreadyAnswered = isQuestionAnswered(content, endIndex);
+        if (alreadyAnswered) {
+          console.log(`Question "${question}" is already answered via similarity. Skipping.`);
+          continue; // Skip to the next question
         }
+
+        questions.push({
+          text: question, // Use the original question text
+          endIndex: endIndex, // Use the associated endIndex
+        });
+        console.log(`Matched Question via Similarity: "${question}" with similarity ${highestSimilarity.toFixed(2)} at endIndex ${endIndex}`);
+        isMatched = true;
       }
 
       if (!isMatched) {
@@ -524,8 +459,6 @@ async function generateAnswer(questionText, extraContext) {
  * @param {string} answerText - The answer text to insert.
  * @returns {Promise<number>} - Returns the number of characters inserted.
  */
-
-
 async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   const words = answerText.split(' ');
   const chunkSize = 5; // Number of words per batch
@@ -534,16 +467,19 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   let totalInserted = 0; // Track total characters inserted
 
   for (let i = 0; i < words.length; i += chunkSize) {
-    const chunk = words.slice(i, i + chunkSize).join(' ') + ' ';
-    const requests = [
-      {
-        insertText: {
-          location: { index: insertIndex },
-          text: chunk
-        }
-      }
-    ];
+    let chunk = words.slice(i, i + chunkSize).join(' ') + ' ';
+    
+    // Check if the current insertion is at the end of a paragraph
     try {
+      // Attempt to insert text at the specified index
+      const requests = [
+        {
+          insertText: {
+            location: { index: insertIndex },
+            text: chunk
+          }
+        }
+      ];
       await docs.documents.batchUpdate({
         documentId: docId,
         requestBody: { requests },
@@ -552,13 +488,35 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
       insertIndex += chunk.length;
     } catch (error) {
       console.error(`Error inserting text at index ${insertIndex}:`, error.message);
-      break;
+      
+      // Attempt to insert a newline before the chunk
+      try {
+        const newlineRequest = [
+          {
+            insertText: {
+              location: { index: insertIndex },
+              text: '\n' + chunk
+            }
+          }
+        ];
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: newlineRequest },
+        });
+        console.log(`Inserted newline before chunk at index ${insertIndex}.`);
+        totalInserted += chunk.length + 1; // +1 for the newline
+        insertIndex += chunk.length + 1;
+      } catch (innerError) {
+        console.error(`Failed to insert newline and chunk at index ${insertIndex}:`, innerError.message);
+        break; // Exit the loop if both insertions fail
+      }
     }
     await new Promise((res) => setTimeout(res, delay * chunkSize)); // Pause based on number of words
   }
 
   return totalInserted; // Return the number of characters inserted
 }
+
 
 // Routes
 
