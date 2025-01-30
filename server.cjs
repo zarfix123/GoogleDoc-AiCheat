@@ -239,7 +239,7 @@ async function parseQuestions(document) {
   const lines = [];
 
   /**
-   * Extract text from a paragraph element and associate each line with its endIndex.
+   * Extract text from a paragraph element and associate it with its endIndex.
    * @param {object} paragraph - The paragraph element from Google Docs.
    */
   const extractParagraphText = (paragraph) => {
@@ -254,23 +254,21 @@ async function parseQuestions(document) {
     // Log extracted text
     console.log('Extracted Paragraph Text:', paraText);
 
-    // Split paragraph into lines based on manual line breaks
-    const splitLines = paraText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 0);
+    if (paraText.length === 0) return; // Skip empty paragraphs
 
-    splitLines.forEach(line => {
-      let endIndex = paragraph.endIndex;
+    // Associate the entire paragraph with its endIndex
+    let endIndex = paragraph.endIndex;
 
-      // Fallback: Calculate endIndex if undefined
-      if (typeof endIndex !== 'number' || isNaN(endIndex)) {
-        const startIndex = paragraph.startIndex || 0;
-        endIndex = startIndex + line.length + 1; // +1 for the newline character
-        console.warn(`endIndex undefined for line "${line}". Calculated endIndex: ${endIndex}`);
-      }
+    // Validate endIndex
+    if (typeof endIndex !== 'number' || isNaN(endIndex)) {
+      const startIndex = paragraph.startIndex || 0;
+      endIndex = startIndex + paraText.length + 1; // +1 for the newline character
+      console.warn(`endIndex undefined for paragraph "${paraText}". Calculated endIndex: ${endIndex}`);
+    }
 
-      // Log each line and its associated endIndex
-      console.log(`Adding Line: "${line}" with endIndex: ${endIndex}`);
-      lines.push({ text: line, endIndex: endIndex });
-    });
+    // Log the paragraph and its endIndex
+    console.log(`Adding Paragraph: "${paraText}" with endIndex: ${endIndex}`);
+    lines.push({ text: paraText, endIndex: endIndex });
   };
 
   // Iterate through all elements in the document body
@@ -281,7 +279,7 @@ async function parseQuestions(document) {
     // Ignore all other element types (e.g., tables, lists, images)
   });
 
-  console.log('Document Lines:', lines.map(line => line.text));
+  console.log('Document Paragraphs:', lines.map(line => line.text));
 
   // Detect questions using OpenAI
   const detectedQuestions = await detectQuestions(lines.map(line => line.text).join('\n'));
@@ -301,11 +299,11 @@ async function parseQuestions(document) {
     const normalizedQuestion = normalizedDetectedQuestions[index];
     let isMatched = false;
 
-    // Find the line that contains the question
-    const matchedLine = lines.find(line => normalizeText(line.text).includes(normalizedQuestion));
+    // Find the paragraph that contains the question
+    const matchedParagraph = lines.find(line => normalizeText(line.text).includes(normalizedQuestion));
 
-    if (matchedLine) {
-      const { text, endIndex } = matchedLine;
+    if (matchedParagraph) {
+      const { text, endIndex } = matchedParagraph;
 
       // Validate endIndex
       if (typeof endIndex !== 'number' || isNaN(endIndex)) {
@@ -332,9 +330,9 @@ async function parseQuestions(document) {
 
     // If not matched via substring, optionally use similarity score as a fallback
     if (!isMatched) {
-      // Iterate through lines to find the highest similarity
+      // Iterate through paragraphs to find the highest similarity
       let highestSimilarity = 0;
-      let bestMatchLine = null;
+      let bestMatchParagraph = null;
 
       lines.forEach((line, lineIndex) => {
         const normalizedLine = normalizeText(line.text);
@@ -344,13 +342,13 @@ async function parseQuestions(document) {
 
         if (similarity > highestSimilarity) {
           highestSimilarity = similarity;
-          bestMatchLine = line;
+          bestMatchParagraph = line;
         }
       });
 
       // Check if the highest similarity exceeds the threshold
-      if (highestSimilarity >= similarityThreshold && bestMatchLine) {
-        const { text, endIndex } = bestMatchLine;
+      if (highestSimilarity >= similarityThreshold && bestMatchParagraph) {
+        const { text, endIndex } = bestMatchParagraph;
 
         // Validate endIndex
         if (typeof endIndex !== 'number' || isNaN(endIndex)) {
@@ -559,7 +557,9 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Purchase Page Route (Placeholder)
+/**
+ * Purchase Page Route (Placeholder)
+ */
 app.get('/purchase', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -691,7 +691,6 @@ app.get('/about', (req, res) => {
     </html>
   `);
 });
-
 
 /**
  * Start Page Route
@@ -1059,7 +1058,9 @@ app.get('/start/:documentId', (req, res) => {
   `);
 });
 
-// Terms and Conditions Route
+/**
+ * Terms and Conditions Route
+ */
 app.get('/terms', (req, res) => {
   res.send(`
     <!DOCTYPE html>
