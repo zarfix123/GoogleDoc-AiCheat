@@ -22,7 +22,7 @@ const credentials = {
   private_key: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'), // Handle newline characters
   token_uri: process.env.TOKEN_URI,
 };
-const SCOPES = [
+const SCOPES = [    
   'https://www.googleapis.com/auth/documents',
   'https://www.googleapis.com/auth/drive'
 ];
@@ -192,6 +192,33 @@ function normalizeText(text) {
     .trim();
 }
 /**
+ * Check if a question at a given endIndex has already been answered.
+ * @param {object[]} content - The content array from the Google Docs document.
+ * @param {number} questionEndIndex - The endIndex of the question in the document.
+ * @returns {boolean} - Returns true if answered, else false.
+ */
+function isQuestionAnswered(content, questionEndIndex) {
+  // Find the element with the given endIndex
+  const index = content.findIndex(element => element.endIndex === questionEndIndex);
+  if (index === -1) {
+    return false; // Can't find the question element, assume not answered
+  }
+  
+  // Check the next element for an answer
+  const nextElement = content[index + 1];
+  if (nextElement && nextElement.paragraph) {
+    const paraText = nextElement.paragraph.elements
+      .filter(el => el.textRun && el.textRun.content)
+      .map(el => el.textRun.content)
+      .join('')
+      .trim();
+    return paraText.startsWith('Answer:');
+  }
+  
+  return false;
+}
+
+/**
  * Parse questions from the document using OpenAI's detection.
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
@@ -229,12 +256,14 @@ async function parseQuestions(document) {
 
   // Locate questions in the document using substring matching
   const questions = [];
-  detectedQuestions.forEach((question, index) => {
+  for (let index = 0; index < detectedQuestions.length; index++) {
+    const question = detectedQuestions[index];
     const normalizedQuestion = normalizedDetectedQuestions[index];
     let isMatched = false;
     let matchedEndIndex = null;
 
-    lines.forEach((line, lineIndex) => {
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
       const normalizedLine = normalizeText(line);
 
       // Check if the normalized question is a substring of the normalized line
@@ -253,15 +282,24 @@ async function parseQuestions(document) {
         });
 
         if (matchedElement && matchedElement.endIndex) {
+          // Check if this question has already been answered
+          const alreadyAnswered = isQuestionAnswered(content, matchedElement.endIndex);
+          if (alreadyAnswered) {
+            console.log(`Question "${question}" is already answered. Skipping.`);
+            isMatched = true;
+            break; // Skip to the next question
+          }
+
           questions.push({
             text: question, // Use the original question text
             endIndex: matchedElement.endIndex,
           });
           console.log(`Matched Question: "${question}" at endIndex ${matchedElement.endIndex}`);
           isMatched = true;
+          break; // Move to the next detected question
         }
       }
-    });
+    }
 
     // If not matched via substring, optionally use similarity score as a fallback
     if (!isMatched) {
@@ -299,6 +337,13 @@ async function parseQuestions(document) {
         });
 
         if (matchedElement && matchedElement.endIndex) {
+          // Check if this question has already been answered
+          const alreadyAnswered = isQuestionAnswered(content, matchedElement.endIndex);
+          if (alreadyAnswered) {
+            console.log(`Question "${question}" is already answered via similarity. Skipping.`);
+            continue; // Skip to the next question
+          }
+
           questions.push({
             text: question, // Use the original question text
             endIndex: matchedElement.endIndex,
@@ -312,13 +357,12 @@ async function parseQuestions(document) {
         console.warn(`Question not found in document: "${question}" (Highest Similarity: ${highestSimilarity.toFixed(2)})`);
       }
     }
-  });
+  }
 
   console.log('Final Questions to process:', questions.map(q => q.text));
 
   return questions;
 }
-
 
 /**
  * Map a character index to Google Docs' endIndex.
