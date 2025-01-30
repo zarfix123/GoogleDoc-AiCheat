@@ -1491,7 +1491,7 @@ app.post('/api/process/:documentId', async (req, res) => {
         continue;
       }
 
-      let insertIndex = question.endIndex - 1 + cumulativeOffset; // Adjusted insertion index
+      let insertIndex = question.endIndex + cumulativeOffset; // Adjusted insertion index
 
       // Safeguard: Ensure insertIndex is within bounds
       if (insertIndex < 0) {
