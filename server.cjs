@@ -316,8 +316,6 @@ async function parseQuestions(document) {
         const maxLength = Math.max(normalizedQuestion.length, normalizedLine.length);
         const similarity = 1 - distance / maxLength;
 
-        console.log(`Comparing "${normalizedQuestion}" with "${normalizedLine}": Similarity = ${similarity.toFixed(2)}`);
-
         if (similarity > highestSimilarity) {
           highestSimilarity = similarity;
           bestMatchLine = line;
@@ -1163,11 +1161,7 @@ app.get('/contact', (req, res) => {
 // Handle Contact Form Submission
 app.post('/contact', (req, res) => {
   // Log the entire request body for debugging
-  console.log('Received body:', req.body);
-
   const { name, email, subject, message } = req.body;
-  console.log(name, email, subject, message);
-
   // Validate Required Fields
   if (!name || !email || !subject || !message) {
     return res.status(400).send(`
