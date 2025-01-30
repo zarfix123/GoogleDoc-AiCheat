@@ -763,7 +763,7 @@ app.get('/start', (req, res) => {
       <div class="container">
         <h1>Process Your Document</h1>
         <div class="directions">
-          <h3>How to Find Your Document ID:</h3>
+          <h3>How to Use:</h3>
           <ol>
             <li>Open your Google Docs document.</li>
             <li>Share your Google Docs document with <strong>impersonate@service-448308.iam.gserviceaccount.com</strong></li>
