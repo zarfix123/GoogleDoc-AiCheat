@@ -649,7 +649,11 @@ app.get('/about', (req, res) => {
         <p>
           Welcome to <strong>HomeAItoB</strong>, your integrated AI assistant designed to enhance your Google Docs experience. Whether you're a student, teacher, or professional, HomeAItoB helps you by automatically detecting questions in your documents and providing insightful answers.
         </p>
-        <h2>About the Creator</h2>
+        <h2>Meaning of the Name</h2>
+        <p>
+          HOME is an acronym for Hub of Optimization, Machine Learning, and Efficiency. AI to B signifies the transformation and application of Artificial Intelligence into a functional, automated bot.
+        </p>
+          <h2>About the Creator</h2>
         <p>
           HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, the creator aimed to build a tool that simplifies the process of understanding and enriching written content. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity.
         </p>
