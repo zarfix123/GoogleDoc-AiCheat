@@ -6,6 +6,7 @@ const { google } = require('googleapis');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
+const validator = require('validator'); // Added for advanced input validation
 
 const app = express();
 app.use(express.json());
@@ -86,6 +87,7 @@ async function isDocumentOwnerApproved(docId) {
 async function fetchDocument(docId) {
   try {
     const res = await docs.documents.get({ documentId: docId });
+    console.log('Fetched Document Structure:', JSON.stringify(res.data, null, 2)); // Pretty-print the document structure
     return res.data;
   } catch (error) {
     console.error(`Failed to fetch document ${docId}:`, error.response?.data || error.message);
@@ -194,6 +196,7 @@ function normalizeText(text) {
     .replace(/\s+/g, ' ')       // Replace multiple spaces with single space
     .trim();
 }
+
 /**
  * Check if a question at a given endIndex has already been answered.
  * @param {object[]} content - The content array from the Google Docs document.
@@ -222,6 +225,7 @@ function isQuestionAnswered(content, questionEndIndex) {
     }
   } else if (questionElement.table) {
     // If it's within a table, find the specific cell and check the next paragraph within that cell
+    let isAnswered = false;
     questionElement.table.tableRows.forEach(row => {
       row.tableCells.forEach(cell => {
         cell.content.forEach(element => {
@@ -236,24 +240,19 @@ function isQuestionAnswered(content, questionEndIndex) {
                 .map(el => el.textRun.content)
                 .join('')
                 .trim();
-              return paraText.startsWith('Answer:');
+              if (paraText.startsWith('Answer:')) {
+                isAnswered = true;
+              }
             }
           }
         });
       });
     });
+    return isAnswered;
   }
 
   return false;
 }
-
-
-/**
- * Parse questions from the document using OpenAI's detection.
- * @param {object} document - The Google Docs document object.
- * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
-  */
-
 
 /**
  * Parse questions from the document using OpenAI's detection.
@@ -271,17 +270,33 @@ async function parseQuestions(document) {
    * @param {object} paragraph - The paragraph element from Google Docs.
    */
   const extractParagraphText = (paragraph) => {
+    console.log('Inspecting Paragraph:', JSON.stringify(paragraph, null, 2)); // Log entire paragraph object
+
     const paraText = paragraph.elements
       .filter(el => el.textRun && el.textRun.content)
       .map(el => el.textRun.content)
       .join('')
       .trim();
 
+    // Log extracted text
+    console.log('Extracted Paragraph Text:', paraText);
+
     // Split paragraph into lines based on manual line breaks
     const splitLines = paraText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 0);
 
     splitLines.forEach(line => {
-      lines.push({ text: line, endIndex: paragraph.endIndex });
+      let endIndex = paragraph.endIndex;
+
+      // Fallback: Calculate endIndex if undefined
+      if (typeof endIndex !== 'number' || isNaN(endIndex)) {
+        const startIndex = paragraph.startIndex || 0;
+        endIndex = startIndex + line.length + 1; // +1 for the newline character
+        console.warn(`endIndex undefined for line "${line}". Calculated endIndex: ${endIndex}`);
+      }
+
+      // Log each line and its associated endIndex
+      console.log(`Adding Line: "${line}" with endIndex: ${endIndex}`);
+      lines.push({ text: line, endIndex: endIndex });
     });
   };
 
@@ -290,8 +305,12 @@ async function parseQuestions(document) {
    * @param {object} table - The table element from Google Docs.
    */
   const extractTableText = (table) => {
-    table.tableRows.forEach(row => {
-      row.tableCells.forEach(cell => {
+    console.log('Inspecting Table:', JSON.stringify(table, null, 2)); // Log entire table object
+
+    table.tableRows.forEach((row, rowIndex) => {
+      row.tableCells.forEach((cell, cellIndex) => {
+        console.log(`Inspecting Table Cell [Row ${rowIndex + 1}, Cell ${cellIndex + 1}]:`, JSON.stringify(cell, null, 2)); // Log cell
+
         const cellContent = cell.content || [];
         cellContent.forEach(element => {
           if (element.paragraph) {
@@ -421,41 +440,6 @@ async function parseQuestions(document) {
   return questions;
 }
 
-
-
-/**
- * Map a character index to Google Docs' endIndex.
- * @param {object[]} content - The content array from the Google Docs document.
- * @param {number} characterIndex - The character index in the fullText.
- * @returns {number|null} - Returns the endIndex or null if not found.
- */
-function mapCharacterIndexToEndIndex(content, characterIndex) {
-  let currentChar = 0;
-  for (const element of content) {
-    if (element.paragraph) {
-      for (const el of element.paragraph.elements) {
-        if (el.textRun && el.textRun.content) {
-          const text = el.textRun.content;
-          const nextChar = currentChar + text.length;
-          if (characterIndex <= nextChar) {
-            return element.endIndex; // Insert after the current paragraph
-          }
-          currentChar = nextChar;
-        }
-      }
-      // Account for paragraph break
-      currentChar += 1; // Assuming '\n' is one character
-    }
-  }
-  return null; // Not found
-}
-
-/**
- * Generate an answer for a given question using OpenAI.
- * @param {string} questionText - The question to answer.
- * @returns {Promise<string|null>} - Returns the answer text or null if failed.
- */
-// Updated `generateAnswer` function with extra context
 /**
  * Generate an answer for a given question using OpenAI.
  * @param {string} questionText - The question to answer.
@@ -501,13 +485,6 @@ async function generateAnswer(questionText, extraContext) {
   }
 }
 
-/**
- * Simulate typing and insert text into the Google Docs document in chunks.
- * @param {string} docId - The Google Docs Document ID.
- * @param {number} insertIndex - The index where text should be inserted.
- * @param {string} answerText - The answer text to insert.
- * @returns {Promise<number>} - Returns the number of characters inserted.
- */
 /**
  * Simulate typing and insert text into the Google Docs document in chunks.
  * @param {string} docId - The Google Docs Document ID.
@@ -578,13 +555,11 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   return totalInserted; // Return the number of characters inserted
 }
 
-
 // Routes
 
 /**
  * Home Page Route
  */
-// Existing Home Page Route
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -637,7 +612,9 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Purchase Page Route (Placeholder)
+/**
+ * Purchase Page Route (Placeholder)
+ */
 app.get('/purchase', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -701,7 +678,9 @@ app.get('/purchase', (req, res) => {
   `);
 });
 
-// About Page Route
+/**
+ * About Page Route
+ */
 app.get('/about', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -746,7 +725,7 @@ app.get('/about', (req, res) => {
         <p>
           HOME is an acronym for <strong>H</strong>ub of <strong>O</strong>ptimization, <strong>M</strong>achine Learning, and <strong>E</strong>fficiency. AI to B signifies the transformation and application of Artificial Intelligence into a functional, automated bot.
         </p>
-          <h2>About the Creator</h2>
+        <h2>About the Creator</h2>
         <p>
           HomeAItoB was developed by an anonymous individual from <strong>Mira Costa High School</strong>. Driven by a passion for technology and education, our creator aimed to build a tool that simplifies the process of understanding and completing written content assignments. By leveraging the power of OpenAI's language models and Google Docs APIs, HomeAItoB stands as a testament to innovative problem-solving and dedication to improving learning and productivity. All proceeds and profits from HomeAItoB will be directly given to the creator to support their future endeavors in making tools like this. If you have any ideas for tools that could be useful just like this, please reach out to the creator at our Contact Us page.
         </p>
@@ -768,8 +747,9 @@ app.get('/about', (req, res) => {
   `);
 });
 
-
-// Existing Start Page Route
+/**
+ * Start Page Route
+ */
 app.get('/start', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -919,14 +899,9 @@ app.get('/start', (req, res) => {
   `);
 });
 
-
-
-
 /**
  * `/start/:documentId` Route - Serves the Processing Page with Real-Time Feedback
  */
-// Updated `/start/:documentId` route to handle extra context
-// Existing /start/:documentId Route
 app.get('/start/:documentId', (req, res) => {
   const documentId = req.params.documentId;
   const extraContext = req.query.extraContext || ''; // Retrieve extra context from query parameters
@@ -936,7 +911,43 @@ app.get('/start/:documentId', (req, res) => {
     return res.status(400).send(`
       <!DOCTYPE html>
       <html lang="en">
-      <!-- Existing error HTML -->
+      <head>
+        <meta charset="UTF-8">
+        <title>Processing Error - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2em; 
+            background-color: #f4f4f4;
+            color: #333;
+          }
+          .container { 
+            background-color: #fff; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            max-width: 600px; 
+            margin: auto;
+            text-align: center;
+          }
+          h1 { color: #dc3545; }
+          a {
+            color: #007bff;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Processing Error</h1>
+          <p>Missing Document ID. Please provide a valid Document ID.</p>
+          <p><a href="/start">Go Back to Start Page</a></p>
+        </div>
+      </body>
+      </html>
     `);
   }
 
@@ -1102,7 +1113,9 @@ app.get('/start/:documentId', (req, res) => {
   `);
 });
 
-// 1. Terms and Conditions Route
+/**
+ * Terms and Conditions Route
+ */
 app.get('/terms', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -1160,9 +1173,9 @@ app.get('/terms', (req, res) => {
   `);
 });
 
-// 2. Contact Page Routes
-
-// Existing Contact Page Route
+/**
+ * Contact Page Route
+ */
 app.get('/contact', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -1237,10 +1250,10 @@ app.get('/contact', (req, res) => {
         <form id="contactForm" action="/contact" method="POST">
           <label for="name">Name:</label>
           <input type="text" id="name" name="name" required />
-  
+
           <label for="email">Email:</label>
           <input type="email" id="email" name="email" required />
-  
+
           <label for="subject">Subject:</label>
           <select id="subject" name="subject" required>
             <option value="">--Please choose an option--</option>
@@ -1250,10 +1263,10 @@ app.get('/contact', (req, res) => {
             <option value="Feedback">Feedback</option>
             <option value="Other">Other</option>
           </select>
-  
+
           <label for="message">Reason for Inquiry / Support Needed:</label>
           <textarea id="message" name="message" rows="5" required></textarea>
-  
+
           <button type="submit">Submit</button>
         </form>
         <div class="back-link">
@@ -1265,12 +1278,14 @@ app.get('/contact', (req, res) => {
   `);
 });
 
-
-// Handle Contact Form Submission
-// Handle Contact Form Submission
+/**
+ * Handle Contact Form Submission
+ */
 app.post('/contact', (req, res) => {
-  // Log the entire request body for debugging
+  // Destructure and log the entire request body for debugging
   const { name, email, subject, message } = req.body;
+  console.log('Received Contact Form Submission:', req.body);
+
   // Validate Required Fields
   if (!name || !email || !subject || !message) {
     return res.status(400).send(`
@@ -1316,11 +1331,55 @@ app.post('/contact', (req, res) => {
     `);
   }
 
-  // Sanitize Inputs (Basic Sanitization)
-  const sanitizedName = name.replace(/[\r\n]/g, " ").trim();
-  const sanitizedEmail = email.replace(/[\r\n]/g, " ").trim();
-  const sanitizedSubject = subject.replace(/[\r\n]/g, " ").trim();
-  const sanitizedMessage = message.replace(/[\r\n]/g, " ").trim();
+  // Sanitize Inputs (Advanced Sanitization)
+  const sanitizedName = validator.escape(name).replace(/[\r\n]/g, " ").trim();
+  const sanitizedEmail = validator.isEmail(email) ? email.trim() : null;
+  const sanitizedSubject = validator.escape(subject).replace(/[\r\n]/g, " ").trim();
+  const sanitizedMessage = validator.escape(message).replace(/[\r\n]/g, " ").trim();
+
+  if (!sanitizedEmail) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Submission Error - HomeAItoB</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2em; 
+            background-color: #f4f4f4;
+            color: #333;
+          }
+          .container { 
+            background-color: #fff; 
+            padding: 2em; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            max-width: 600px; 
+            margin: auto;
+            text-align: center;
+          }
+          h1 { color: #dc3545; }
+          a {
+            color: #007bff;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Submission Failed</h1>
+          <p>Invalid email address. Please enter a valid email.</p>
+          <p><a href="/contact">Go Back to Contact Form</a></p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
 
   // Define Directory Path
   const helpDir = path.join(__dirname, 'help', sanitizedSubject);
@@ -1436,12 +1495,6 @@ Timestamp: ${new Date(timestamp).toISOString()}
   });
 });
 
-
-/**
- * API Endpoint to Process the Document
- */
-// Updated `/api/process/:documentId` route to handle extra context
-// Existing API Endpoint to Process the Document
 /**
  * API Endpoint to Process the Document
  */
@@ -1520,8 +1573,6 @@ app.post('/api/process/:documentId', async (req, res) => {
     return res.status(500).json({ error: 'An error occurred while processing your document. Please try again later.' });
   }
 });
-
-
 
 /**
  * Start the Server
