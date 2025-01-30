@@ -226,22 +226,55 @@ function isQuestionAnswered(content, questionEndIndex) {
  * @param {object} document - The Google Docs document object.
  * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
  */
+/**
+ * Parse questions from the document using OpenAI's detection.
+ * @param {object} document - The Google Docs document object.
+ * @returns {Promise<object[]>} - Returns an array of question objects with text and endIndex.
+ */
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
-  // Extract all lines from the document
+  // Initialize an array to hold all lines extracted from paragraphs and tables
   const lines = [];
+
+  // Function to extract text from a paragraph element
+  const extractParagraphText = (paragraph) => {
+    const paraText = paragraph.elements
+      .filter(el => el.textRun && el.textRun.content)
+      .map(el => el.textRun.content)
+      .join('')
+      .trim();
+    // Split paragraph into lines based on manual line breaks or multiple spaces
+    const splitLines = paraText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 0);
+    lines.push(...splitLines);
+  };
+
+  // Function to extract text from a table element
+  const extractTableText = (table) => {
+    table.tableRows.forEach(row => {
+      row.tableCells.forEach(cell => {
+        const cellContent = cell.content || [];
+        cellContent.forEach(element => {
+          if (element.paragraph) {
+            extractParagraphText(element.paragraph);
+          }
+          // If tables are nested within cells, recursively extract text
+          if (element.table) {
+            extractTableText(element.table);
+          }
+        });
+      });
+    });
+  };
+
+  // Iterate through all elements in the document body
   content.forEach(element => {
     if (element.paragraph) {
-      const paraText = element.paragraph.elements
-        .filter(el => el.textRun && el.textRun.content)
-        .map(el => el.textRun.content)
-        .join('')
-        .trim();
-      // Split paragraph into lines based on manual line breaks or multiple spaces
-      const splitLines = paraText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 0);
-      lines.push(...splitLines);
+      extractParagraphText(element.paragraph);
+    } else if (element.table) {
+      extractTableText(element.table);
     }
+    // Handle other element types if necessary (e.g., lists, images)
   });
 
   console.log('Document Lines:', lines);
@@ -271,7 +304,7 @@ async function parseQuestions(document) {
 
       // Check if the normalized question is a substring of the normalized line
       if (normalizedLine.includes(normalizedQuestion)) {
-        // Retrieve the corresponding paragraph to get the endIndex
+        // Retrieve the corresponding element to get the endIndex
         const matchedElement = content.find(element => {
           if (element.paragraph) {
             const paraText = element.paragraph.elements
@@ -280,6 +313,26 @@ async function parseQuestions(document) {
               .join('')
               .trim();
             return normalizeText(paraText).includes(normalizedQuestion);
+          } else if (element.table) {
+            // Search within table cells
+            let found = false;
+            element.table.tableRows.forEach(row => {
+              row.tableCells.forEach(cell => {
+                cell.content.forEach(cellElement => {
+                  if (cellElement.paragraph) {
+                    const paraText = cellElement.paragraph.elements
+                      .filter(el => el.textRun && el.textRun.content)
+                      .map(el => el.textRun.content)
+                      .join('')
+                      .trim();
+                    if (normalizeText(paraText).includes(normalizedQuestion)) {
+                      found = true;
+                    }
+                  }
+                });
+              });
+            });
+            return found;
           }
           return false;
         });
@@ -324,7 +377,7 @@ async function parseQuestions(document) {
 
       // Check if the highest similarity exceeds the threshold
       if (highestSimilarity >= similarityThreshold && bestMatchLine) {
-        // Retrieve the corresponding paragraph to get the endIndex
+        // Retrieve the corresponding element to get the endIndex
         const matchedElement = content.find(element => {
           if (element.paragraph) {
             const paraText = element.paragraph.elements
@@ -333,6 +386,26 @@ async function parseQuestions(document) {
               .join('')
               .trim();
             return normalizeText(paraText) === normalizeText(bestMatchLine);
+          } else if (element.table) {
+            // Search within table cells
+            let found = false;
+            element.table.tableRows.forEach(row => {
+              row.tableCells.forEach(cell => {
+                cell.content.forEach(cellElement => {
+                  if (cellElement.paragraph) {
+                    const paraText = cellElement.paragraph.elements
+                      .filter(el => el.textRun && el.textRun.content)
+                      .map(el => el.textRun.content)
+                      .join('')
+                      .trim();
+                    if (normalizeText(paraText) === normalizeText(bestMatchLine)) {
+                      found = true;
+                    }
+                  }
+                });
+              });
+            });
+            return found;
           }
           return false;
         });
@@ -364,6 +437,7 @@ async function parseQuestions(document) {
 
   return questions;
 }
+
 
 /**
  * Map a character index to Google Docs' endIndex.
