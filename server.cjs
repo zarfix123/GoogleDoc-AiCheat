@@ -535,10 +535,8 @@ app.get('/', (req, res) => {
       <div class="container">
         <h1>Welcome to HomeAItoB</h1>
         <p>Your document-integrated AI is ready to help!</p>
-        <a href="/start">Get Started</a> | <a href="/about">About</a> | <a href="/purchase">Purchase</a>
-        
-        <!-- **New "Contact Us" Button Added Below** -->
-        <a href="/contact">Contact Us</a>
+        <a href="/start">Get Started</a> | <a href="/about">About</a> | <a href="/purchase">Purchase</a> | <a href="/contact">Contact Us</a>
+
       </div>
     </body>
     </html>
