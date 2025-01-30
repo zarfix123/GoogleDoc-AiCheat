@@ -651,7 +651,7 @@ app.get('/about', (req, res) => {
         </p>
         <h2>Meaning of the Name</h2>
         <p>
-          HOME is an acronym for Hub of Optimization, Machine Learning, and Efficiency. AI to B signifies the transformation and application of Artificial Intelligence into a functional, automated bot.
+          HOME is an acronym for <strong>H</strong>ub of <strong>O</strong>ptimization, <strong>M</strong>achine Learning, and <strong>E</strong>fficiency. AI to B signifies the transformation and application of Artificial Intelligence into a functional, automated bot.
         </p>
           <h2>About the Creator</h2>
         <p>
