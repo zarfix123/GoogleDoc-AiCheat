@@ -6,7 +6,7 @@ const { google } = require('googleapis');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
-const validator = require('validator'); // Added for advanced input validation
+const validator = require('validator'); // For advanced input validation
 
 const app = express();
 app.use(express.json());
@@ -210,9 +210,8 @@ function isQuestionAnswered(content, questionEndIndex) {
     return false; // Can't find the question element, assume not answered
   }
 
-  // Determine if the question is within a paragraph or a table cell
+  // If it's a paragraph, check the next element in the content array
   if (questionElement.paragraph) {
-    // If it's a paragraph, check the next element in the content array
     const index = content.indexOf(questionElement);
     const nextElement = content[index + 1];
     if (nextElement && nextElement.paragraph) {
@@ -223,32 +222,6 @@ function isQuestionAnswered(content, questionEndIndex) {
         .trim();
       return paraText.startsWith('Answer:');
     }
-  } else if (questionElement.table) {
-    // If it's within a table, find the specific cell and check the next paragraph within that cell
-    let isAnswered = false;
-    questionElement.table.tableRows.forEach(row => {
-      row.tableCells.forEach(cell => {
-        cell.content.forEach(element => {
-          if (element.paragraph && element.endIndex === questionEndIndex) {
-            // Find the paragraph within the cell
-            const paragraphs = cell.content.filter(el => el.paragraph);
-            const paraIndex = paragraphs.findIndex(el => el.endIndex === questionEndIndex);
-            const nextPara = paragraphs[paraIndex + 1];
-            if (nextPara && nextPara.paragraph) {
-              const paraText = nextPara.paragraph.elements
-                .filter(el => el.textRun && el.textRun.content)
-                .map(el => el.textRun.content)
-                .join('')
-                .trim();
-              if (paraText.startsWith('Answer:')) {
-                isAnswered = true;
-              }
-            }
-          }
-        });
-      });
-    });
-    return isAnswered;
   }
 
   return false;
@@ -262,7 +235,7 @@ function isQuestionAnswered(content, questionEndIndex) {
 async function parseQuestions(document) {
   const content = document.body.content || [];
 
-  // Initialize an array to hold all lines extracted from paragraphs and tables
+  // Initialize an array to hold all lines extracted from paragraphs
   const lines = [];
 
   /**
@@ -300,39 +273,12 @@ async function parseQuestions(document) {
     });
   };
 
-  /**
-   * Extract text from a table element, traversing each cell and its paragraphs.
-   * @param {object} table - The table element from Google Docs.
-   */
-  const extractTableText = (table) => {
-    console.log('Inspecting Table:', JSON.stringify(table, null, 2)); // Log entire table object
-
-    table.tableRows.forEach((row, rowIndex) => {
-      row.tableCells.forEach((cell, cellIndex) => {
-        console.log(`Inspecting Table Cell [Row ${rowIndex + 1}, Cell ${cellIndex + 1}]:`, JSON.stringify(cell, null, 2)); // Log cell
-
-        const cellContent = cell.content || [];
-        cellContent.forEach(element => {
-          if (element.paragraph) {
-            extractParagraphText(element.paragraph);
-          }
-          // Handle nested tables if present
-          if (element.table) {
-            extractTableText(element.table);
-          }
-        });
-      });
-    });
-  };
-
   // Iterate through all elements in the document body
   content.forEach(element => {
     if (element.paragraph) {
       extractParagraphText(element.paragraph);
-    } else if (element.table) {
-      extractTableText(element.table);
     }
-    // Handle other element types if necessary (e.g., lists, images)
+    // Ignore all other element types (e.g., tables, lists, images)
   });
 
   console.log('Document Lines:', lines.map(line => line.text));
@@ -555,6 +501,7 @@ async function simulateTypingAndInsert(docId, insertIndex, answerText) {
   return totalInserted; // Return the number of characters inserted
 }
 
+
 // Routes
 
 /**
@@ -612,9 +559,7 @@ app.get('/', (req, res) => {
   `);
 });
 
-/**
- * Purchase Page Route (Placeholder)
- */
+// Purchase Page Route (Placeholder)
 app.get('/purchase', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -746,6 +691,7 @@ app.get('/about', (req, res) => {
     </html>
   `);
 });
+
 
 /**
  * Start Page Route
@@ -1113,9 +1059,7 @@ app.get('/start/:documentId', (req, res) => {
   `);
 });
 
-/**
- * Terms and Conditions Route
- */
+// Terms and Conditions Route
 app.get('/terms', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -1217,7 +1161,6 @@ app.get('/contact', (req, res) => {
           border-radius: 4px;
           width: 100%;
         }
-        /* Removed checkbox-container styles */
         button {
           padding: 0.7em;
           margin-top: 1.5em;
@@ -1495,6 +1438,7 @@ Timestamp: ${new Date(timestamp).toISOString()}
   });
 });
 
+
 /**
  * API Endpoint to Process the Document
  */
@@ -1573,6 +1517,7 @@ app.post('/api/process/:documentId', async (req, res) => {
     return res.status(500).json({ error: 'An error occurred while processing your document. Please try again later.' });
   }
 });
+
 
 /**
  * Start the Server
